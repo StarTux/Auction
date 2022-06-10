@@ -1,0 +1,50 @@
+main: com.cavetale.auction.AuctionPlugin
+
+name: Auction
+version: 0.1
+description: Auction Plugin
+api-version: 1.18
+
+author: StarTux
+website: https://github.com/StarTux/Auction
+
+depend: [Core, SQL, Mytems, Inventory, Sidebar]
+softdepend: []
+
+commands:
+
+  auction:
+    aliases: [auc]
+    description: Auction Command
+    permission: auction.auction
+    usage: /auction
+
+  bid:
+    aliases: []
+    description: Bid on an auction
+    permission: auction.bid
+    usage: /bid
+
+  auctionadmin:
+    aliases: [aucadm]
+    description: Admin interface
+    permission: auction.admin
+    usage: /aucadm
+
+permissions:
+
+  auction.auction:
+    description: Use /auction
+    default: op
+
+  auction.bid:
+    description: Bid on auctions
+    default: op
+
+  auction.start:
+    description: Start an auction
+    default: op
+
+  auction.admin:
+    description: Use /auctionadmin
+    default: op
