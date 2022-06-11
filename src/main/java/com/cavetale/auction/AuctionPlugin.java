@@ -2,12 +2,13 @@ package com.cavetale.auction;
 
 import com.cavetale.auction.gui.Gui;
 import com.cavetale.auction.sql.SQLAuction;
+import com.cavetale.auction.sql.SQLDelivery;
 import com.cavetale.auction.sql.SQLLog;
 import com.cavetale.auction.sql.SQLPlayerAuction;
 import com.winthier.sql.SQLDatabase;
 import java.util.List;
-import org.bukkit.plugin.java.JavaPlugin;
 import lombok.Getter;
+import org.bukkit.plugin.java.JavaPlugin;
 
 public final class AuctionPlugin extends JavaPlugin {
     private static AuctionPlugin instance;
@@ -22,7 +23,8 @@ public final class AuctionPlugin extends JavaPlugin {
         instance = this;
         database.registerTables(List.of(SQLAuction.class,
                                         SQLPlayerAuction.class,
-                                        SQLLog.class));
+                                        SQLLog.class,
+                                        SQLDelivery.class));
         if (!database.createAllTables()) {
             throw new IllegalStateException("Database creation failed");
         }

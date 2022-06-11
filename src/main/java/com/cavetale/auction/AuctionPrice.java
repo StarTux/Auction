@@ -1,8 +1,9 @@
 package com.cavetale.auction;
 
-import com.cavetale.core.money.Money;
 import com.cavetale.mytems.item.coin.Coin;
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
 import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import static com.cavetale.core.font.Unicode.tiny;
@@ -28,19 +29,22 @@ public enum AuctionPrice {
     public final Duration duration;
     public final double price;
 
-    public Component toComponent() {
+    public Component toBookComponent() {
         Component text = join(separator(space()),
-                              text(Money.get().format(price), BLUE),
-                              text(showName, LIGHT_PURPLE));
+                              Format.money(price, true).hoverEvent(null).clickEvent(null),
+                              Format.duration(duration, true).hoverEvent(null).clickEvent(null));
+        Date then = Date.from(Instant.now().plus(duration));
         return text
             .hoverEvent(showText(join(separator(newline()),
+                                      text(Format.date(then), GRAY),
                                       join(noSeparators(), text("Auction Fee ", GRAY), Coin.format(price)),
                                       join(noSeparators(), text("Minimum Bid ", GRAY), Coin.format(price)),
-                                      join(noSeparators(), text("Duration ", GRAY), Auction.format(duration)),
-                                      text(tiny("You will be able to"), GRAY),
-                                      text(tiny("place the auction"), GRAY),
-                                      text(tiny("items on the next"), GRAY),
-                                      text(tiny("screen."), GRAY))))
+                                      join(noSeparators(), text("Duration ", GRAY), Format.duration(duration)),
+                                      space(),
+                                      text(tiny("You will be able to"), DARK_GRAY),
+                                      text(tiny("place the auction"), DARK_GRAY),
+                                      text(tiny("items on the next"), DARK_GRAY),
+                                      text(tiny("screen."), DARK_GRAY))))
             .clickEvent(runCommand("/auc startprice " + name()));
     }
 }

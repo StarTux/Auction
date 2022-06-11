@@ -2,13 +2,17 @@ package com.cavetale.auction;
 
 import com.cavetale.auction.gui.Gui;
 import com.cavetale.auction.sql.SQLAuction;
+import com.cavetale.auction.sql.SQLDelivery;
 import com.cavetale.core.connect.NetworkServer;
 import com.cavetale.core.event.connect.ConnectMessageEvent;
 import com.cavetale.mytems.item.coin.Coin;
 import com.cavetale.sidebar.PlayerSidebarEvent;
 import com.cavetale.sidebar.Priority;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
@@ -31,6 +35,13 @@ import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
 import static net.kyori.adventure.text.JoinConfiguration.separator;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
 
+/**
+ * Manage all active auctions.
+ * While every server will maintain an updated instance of this class,
+ * only the one manager server will actually edit auctions, accept
+ * bids, update player listen types, and send announcements.
+ * Auctions can be scheduled from any server, however.
+ */
 @RequiredArgsConstructor
 public final class Auctions implements Listener {
     protected static final String CONNECT_REFRESH = "auction:refresh";
@@ -41,6 +52,7 @@ public final class Auctions implements Listener {
         .comparing(row -> row.getCreatedTime());
     private final AuctionPlugin plugin;
     private final Map<Integer, Auction> auctionMap = new TreeMap<>();
+    private HashSet<UUID> deliveries = new HashSet<>();
     private boolean manage;
     private boolean refreshing;
     private boolean scheduling;
@@ -67,6 +79,7 @@ public final class Auctions implements Listener {
             Bukkit.getScheduler().runTaskTimer(plugin, this::managerTick, 0L, 20L);
             plugin.getLogger().info("Auction manager active!");
         }
+        Bukkit.getScheduler().runTaskTimer(plugin, this::checkDeliveries, 0L, 200L);
     }
 
     protected void refresh() {
@@ -85,6 +98,14 @@ public final class Auctions implements Listener {
         auctionMap.computeIfAbsent(id, i -> new Auction(plugin, i)).load();
     }
 
+    public void checkDeliveries() {
+        plugin.database.find(SQLDelivery.class)
+            .findValuesAsync("owner", UUID.class, uuids -> {
+                    deliveries.clear();
+                    deliveries.addAll(uuids);
+                });
+    }
+
     protected void schedule() {
         if (scheduling) return;
         queueEmpty = true;
@@ -98,8 +119,7 @@ public final class Auctions implements Listener {
                     list.sort(CREATED_TIME_COMPARATOR);
                     SQLAuction auctionRow = list.get(0);
                     int id = auctionRow.getId();
-                    Auction auction = new Auction(plugin, id);
-                    auction.setAuctionRow(auctionRow);
+                    Auction auction = new Auction(plugin, auctionRow);
                     auctionMap.put(id, auction);
                     auction.start();
                 });
@@ -130,26 +150,30 @@ public final class Auctions implements Listener {
 
     @EventHandler
     private void onPlayerSidebar(PlayerSidebarEvent event) {
-        if (auctionMap.isEmpty()) return;
+        if (deliveries.contains(event.getPlayer().getUniqueId())) {
+            event.add(plugin, Priority.HIGHEST, List.of(text("You have an auction delivery", AQUA),
+                                                        text("/auc pickup", YELLOW)));
+        }
         if (!event.getPlayer().hasPermission("auction.auction")) return;
+        if (auctionMap.isEmpty()) return;
         final UUID uuid = event.getPlayer().getUniqueId();
         List<Auction> playerAuctions = getPlayerAuctions(uuid);
         if (playerAuctions.isEmpty()) return;
         List<Component> lines = new ArrayList<>();
         lines.add(join(noSeparators(),
                        text("Current ", AQUA), text("/auc", YELLOW), text("tions", AQUA)));
-        boolean focusAny = false;
+        Priority prio = Priority.LOW;
         for (int i = 0; i < playerAuctions.size(); i += 1) {
             Auction auction = playerAuctions.get(i);
             boolean focus = auction.getListenType(uuid).isFocus();
             if (i > 0 && !focus) break;
-            focusAny |= focus;
+            if (focus) prio = Priority.HIGH;
             lines.add(auction.getItemTag());
             lines.add(join(separator(space()),
-                           Auction.format(auction.getAuctionRow().getRemainingDuration()),
+                           Format.duration(auction.getAuctionRow().getRemainingDuration()),
                            Coin.format(auction.getAuctionRow().getCurrentPrice())));
         }
-        event.add(plugin, focusAny ? Priority.HIGH : Priority.LOW, lines);
+        event.add(plugin, prio, lines);
     }
 
     @EventHandler
@@ -207,13 +231,23 @@ public final class Auctions implements Listener {
     private void managerTick() {
         if (refreshing) return;
         boolean anyEndsWithin = false;
-        for (Auction auction : auctionMap.values()) {
-            if (!auction.isActive()) continue;
-            auction.managerTick();
-            if (auction.getAuctionRow().getRemainingDuration().toMinutes() <= 10L) anyEndsWithin = true;
-        }
+        boolean anyLoading = false;
+        boolean anyStartedRecently = false;
         auctionMap.values().removeIf(Auction::hasEnded);
-        if (!anyEndsWithin && !queueEmpty) {
+        for (Auction auction : auctionMap.values()) {
+            if (auction.isLoading()) {
+                anyLoading = true;
+                continue;
+            }
+            auction.managerTick();
+            if (auction.getAuctionRow().getRemainingDuration().toMinutes() <= 10L) {
+                anyEndsWithin = true;
+            }
+            if (Duration.between(auction.getAuctionRow().getStartTime().toInstant(), Instant.now()).toSeconds() < 60L) {
+                anyStartedRecently = true;
+            }
+        }
+        if (!anyLoading && !anyEndsWithin && !anyStartedRecently && !queueEmpty) {
             plugin.getLogger().info("scheduling...");
             schedule();
         }

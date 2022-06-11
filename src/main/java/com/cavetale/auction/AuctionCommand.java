@@ -2,6 +2,7 @@ package com.cavetale.auction;
 
 import com.cavetale.auction.gui.Gui;
 import com.cavetale.auction.sql.SQLAuction;
+import com.cavetale.auction.sql.SQLPlayerAuction;
 import com.cavetale.core.command.AbstractCommand;
 import com.cavetale.core.command.CommandArgCompleter;
 import com.cavetale.core.command.CommandNode;
@@ -12,8 +13,12 @@ import com.cavetale.core.connect.NetworkServer;
 import com.cavetale.core.money.Money;
 import com.cavetale.inventory.mail.ItemMail;
 import com.cavetale.mytems.item.coin.Coin;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Set;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -41,6 +46,24 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
             .description("Auction preview")
             .completers(CommandArgCompleter.integer(i -> i > 0))
             .playerCaller(this::preview);
+        rootNode.addChild("list").denyTabCompletion()
+            .description("List current auctions")
+            .playerCaller(this::list);
+        rootNode.addChild("hist").denyTabCompletion()
+            .description("View auction history")
+            .playerCaller(this::hist);
+        rootNode.addChild("my").denyTabCompletion()
+            .description("View your own auctions")
+            .playerCaller(this::my);
+        rootNode.addChild("info").arguments("<id>")
+            .description("View auction info")
+            .playerCaller(this::info);
+        rootNode.addChild("ignore").arguments("<id>")
+            .description("Ignore an auction")
+            .playerCaller(this::ignore);
+        rootNode.addChild("focus").arguments("<id>")
+            .description("Focus an auction")
+            .playerCaller(this::focus);
         bidNode = rootNode.addChild("bid").arguments("[id] <amount>")
             .description("Place a bid")
             .completers(CommandArgCompleter.integer(i -> i > 0),
@@ -52,6 +75,103 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
             .playerCaller(this::start);
         rootNode.addChild("startprice").denyTabCompletion().hidden(true)
             .playerCaller(this::startPrice);
+    }
+
+    private void listAuctionsInBook(Player player, List<Auction> auctions) {
+        if (auctions.isEmpty()) {
+            player.sendMessage(text("No auctions to show", RED));
+            return;
+        }
+        List<Component> pages = new ArrayList<>();
+        List<Component> lines = new ArrayList<>();
+        for (Auction auction : auctions) {
+            List<Component> newLines = auction.getBookLines(player.getUniqueId());
+            if (lines.size() + newLines.size() >= 10) {
+                pages.add(join(separator(newline()), lines));
+                lines.clear();
+            }
+            lines.addAll(newLines);
+        }
+        if (!lines.isEmpty()) {
+            pages.add(join(separator(newline()), lines));
+        }
+        ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
+        book.editMeta(m -> {
+                if (!(m instanceof BookMeta meta)) return;
+                meta.setAuthor("cavetale");
+                meta.title(text("auction"));
+                meta.pages(pages);
+            });
+        player.openBook(book);
+    }
+
+    private void listAuctionRowsInBook(Player player, List<SQLAuction> rows) {
+        if (rows.isEmpty()) {
+            player.sendMessage(text("No auctions to show", RED));
+            return;
+        }
+        List<Auction> auctions = new ArrayList<>(rows.size());
+        for (SQLAuction row : rows) {
+            Auction auction = new Auction(plugin, row);
+            auction.computeItems();
+            auctions.add(auction);
+        }
+        listAuctionsInBook(player, auctions);
+    }
+
+    private void list(Player player) {
+        listAuctionsInBook(player, plugin.auctions.getActiveAuctions());
+    }
+
+    private void hist(Player player) {
+        Date then = Date.from(Instant.now().minus(Duration.ofHours(24)));
+        plugin.database.find(SQLAuction.class)
+            .eq("state", AuctionState.ENDED)
+            .gte("endTime", then)
+            .orderByAscending("endTime")
+            .findListAsync(rows -> listAuctionRowsInBook(player, rows));
+    }
+
+    private void my(Player player) {
+        Date then = Date.from(Instant.now().minus(Duration.ofHours(24)));
+        plugin.database.find(SQLAuction.class)
+            .eq("owner", player.getUniqueId())
+            .orderByAscending("createdTime")
+            .findListAsync(rows -> listAuctionRowsInBook(player, rows));
+    }
+
+    private void viewAuctionInBook(Player player, SQLAuction row) {
+        Auction auction = new Auction(plugin, row);
+        auction.computeItems();
+        auction.loadPlayers(() -> {
+                ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
+                book.editMeta(m -> {
+                        if (!(m instanceof BookMeta meta)) return;
+                        meta.setAuthor("cavetale");
+                        meta.title(text("auction"));
+                        meta.pages(join(separator(newline()), auction.getInfoLines(player.getUniqueId(), true)));
+                    });
+                player.openBook(book);
+            });
+    }
+
+    private void viewAuctionInBook(Player player, int id) {
+        plugin.database.find(SQLAuction.class)
+            .idEq(id)
+            .findUniqueAsync(row -> {
+                    if (row == null) {
+                        player.sendMessage(text("Auction not found: " + id, RED));
+                        return;
+                    }
+                    viewAuctionInBook(player, row);
+                });
+    }
+
+    private boolean info(Player player, String[] args) {
+        if (args.length != 1) return false;
+        int id = CommandArgCompleter.requireInt(args[0], i -> i > 0);
+        viewAuctionInBook(player, id);
+        return true;
     }
 
     protected boolean preview(Player player, String[] args) {
@@ -66,7 +186,56 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
         return true;
     }
 
+    private boolean listen(Player player, ListenType listenType, String[] args) {
+        if (args.length != 1) return false;
+        int id = CommandArgCompleter.requireInt(args[0], i -> i > 0);
+        plugin.database.find(SQLAuction.class)
+            .idEq(id)
+            .findRowCountAsync(count -> {
+                    if (count == 0) {
+                        player.sendMessage(text("Auction not found: " + id, RED));
+                        return;
+                    }
+                    plugin.database.find(SQLPlayerAuction.class)
+                        .eq("auctionId", id)
+                        .eq("player", player.getUniqueId())
+                        .findUniqueAsync(playerAuction -> {
+                                if (playerAuction != null) {
+                                    if (playerAuction.getListenType() != listenType) {
+                                        playerAuction.setListenType(listenType);
+                                        plugin.database.updateAsync(playerAuction, Set.of("listenType"), r -> {
+                                                Connect.get().broadcastMessageToAll(Auctions.CONNECT_REFRESH, "" + id);
+                                            });
+                                    }
+                                } else {
+                                    playerAuction = new SQLPlayerAuction(id, player.getUniqueId());
+                                    playerAuction.setListenType(listenType);
+                                    plugin.database.insertAsync(playerAuction, r -> {
+                                            Connect.get().broadcastMessageToAll(Auctions.CONNECT_REFRESH, "" + id);
+                                        });
+                                }
+                                if (listenType == ListenType.IGNORE) {
+                                    player.sendMessage(text("You are now ignoring this auction", GREEN));
+                                }
+                                if (listenType == ListenType.FOCUS) {
+                                    player.sendMessage(text("You are now focusing this auction", GREEN));
+                                    viewAuctionInBook(player, id);
+                                }
+                            });
+                });
+        return true;
+    }
+
+    private boolean ignore(Player player, String[] args) {
+        return listen(player, ListenType.IGNORE, args);
+    }
+
+    private boolean focus(Player player, String[] args) {
+        return listen(player, ListenType.FOCUS, args);
+    }
+
     protected boolean bid(RemotePlayer player, String[] args) {
+        if (args.length == 0) return false;
         if (args.length > 2) return false;
         final Auction auction;
         final double amount;
@@ -117,12 +286,12 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
         lines.add(text("Auction Duration", DARK_AQUA));
         for (AuctionPrice it : AuctionPrice.values()) {
             lines.add(empty());
-            lines.add(it.toComponent());
+            lines.add(it.toBookComponent());
         }
         book.editMeta(m -> {
                 if (m instanceof BookMeta meta) {
                     meta.setAuthor("cavetale");
-                    meta.setTitle("auction");
+                    meta.title(text("auction"));
                     meta.pages(List.of(join(separator(newline()), lines)));
                 }
             });
@@ -157,7 +326,7 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
 
     private void startPriceInventory(Player player, AuctionPrice price, Inventory inventory) {
         if (inventory.isEmpty()) return;
-        if (!Money.get().take(player.getUniqueId(), price.price)) {
+        if (!Money.get().take(player.getUniqueId(), price.price, plugin, "Start an auction")) {
             retour(player, inventory);
             player.sendMessage(join(noSeparators(),
                                     text("You do not have ", RED),
@@ -176,6 +345,7 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
                 }
                 player.sendMessage(text("Auction scheduled!", GREEN));
                 Connect.get().broadcastMessageToAll(Auctions.CONNECT_SCHEDULED, "");
+                LogType.CREATE.log(auction, player.getUniqueId(), price.price);
             });
     }
 

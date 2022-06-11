@@ -1,14 +1,14 @@
 main: com.cavetale.auction.AuctionPlugin
-
 name: Auction
+
 version: 0.1
-description: Auction Plugin
 api-version: 1.18
 
+description: Auction Plugin
 author: StarTux
 website: https://github.com/StarTux/Auction
 
-depend: [Core, SQL, Mytems, Inventory, Sidebar]
+depend: [Core, SQL, PlayerCache, Mytems, Inventory, Sidebar]
 softdepend: []
 
 commands:

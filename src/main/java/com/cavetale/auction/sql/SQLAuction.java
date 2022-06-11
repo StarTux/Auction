@@ -17,7 +17,8 @@ import lombok.Data;
 import org.bukkit.inventory.Inventory;
 
 @Data @NotNull @Name("auctions")
-@Key({"state"})
+@Key({"owner", "createdTime"})
+@Key({"state", "endTime"})
 @Key({"exclusive", "owner"})
 public final class SQLAuction implements SQLRow {
     @Id private Integer id;
