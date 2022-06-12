@@ -100,7 +100,7 @@ public final class Auction {
     }
 
     protected void log(String msg) {
-        plugin.getLogger().fine("[" + id + "] " + msg);
+        plugin.getLogger().info("[" + id + "] " + msg);
     }
 
     public boolean isActive() {
@@ -336,12 +336,24 @@ public final class Auction {
         return itemComponent.clickEvent(runCommand("/auc preview " + id));
     }
 
+    public Component getUserTags(UUID target) {
+        List<Component> result = new ArrayList<>();
+        if (!auctionRow.isOwner(target)) {
+            result.add(getBidTag(target, false, false));
+        }
+        ListenType listenType = getListenType(target);
+        if (!listenType.isFocus()) {
+            result.add(getFocusTag(false));
+        }
+        if (!listenType.isIgnore()) {
+            result.add(getIgnoreTag(false));
+        }
+        return join(noSeparators(), result);
+    }
+
     public Component getAnnouncementMessage(UUID target) {
         return join(noSeparators(),
-                    getBidTag(target, false, false),
-                    getFocusTag(false),
-                    getIgnoreTag(false),
-                    space(),
+                    getUserTags(target),
                     getAuctionTag(),
                     text(tiny(" for "), DARK_GRAY),
                     getItemTag(),
@@ -397,7 +409,7 @@ public final class Auction {
             bidType = BidType.SILENT;
         } else {
             if (winning) {
-                final double newPrice = Math.max(price, auctionRow.getCurrentBid());
+                final double newPrice = Math.max(highest, auctionRow.getCurrentBid());
                 auctionRow.setCurrentBid(newPrice);
                 auctionRow.setCurrentPrice(newPrice);
                 auctionRow.setHighestBid(amount);
@@ -425,22 +437,26 @@ public final class Auction {
                                     Coin.format(amount)));
         } else if (bidType.isWinner()) {
             announce(ListenType.FOCUS, Set.of(player.getUniqueId()),
-                     join(noSeparators(),
-                          getBidTag(player.getUniqueId(), false, false),
-                          getIgnoreTag(false),
-                          getAuctionTag(),
-                          space(),
-                          text(player.getName()),
-                          text(tiny(" is winning "), DARK_GRAY),
-                          getItemTag(),
-                          text(tiny(" price "), DARK_GRAY),
-                          Coin.format(auctionRow.getCurrentPrice())));
+                     uuid -> join(noSeparators(),
+                                  getUserTags(uuid),
+                                  getAuctionTag(),
+                                  space(),
+                                  text(player.getName()),
+                                  text(tiny(" is winning "), DARK_GRAY),
+                                  getItemTag(),
+                                  text(tiny(" for "), DARK_GRAY),
+                                  Coin.format(auctionRow.getCurrentPrice())));
         } else if (bidType.isRaise()) {
-            player.sendMessage(join(noSeparators(),
-                                    getAuctionTag(),
-                                    space(),
-                                    text("There is a higher bid, so you raised the price to "),
-                                    Coin.format(auctionRow.getCurrentPrice())));
+            announce(ListenType.FOCUS, Set.of(player.getUniqueId()),
+                     uuid -> join(noSeparators(),
+                                  getUserTags(uuid),
+                                  getAuctionTag(),
+                                  space(),
+                                  text(player.getName()),
+                                  text(tiny(" raised "), DARK_GRAY),
+                                  getItemTag(),
+                                  text(tiny(" to "), DARK_GRAY),
+                                  Coin.format(auctionRow.getCurrentPrice())));
         }
     }
 
