@@ -10,11 +10,18 @@ public enum LogType {
     START,
     BID,
     WIN,
+    DEBT,
     FAIL,
-    CANCEL;
+    CANCEL,
+    DELIVERED;
 
     protected void log(SQLAuction auc, UUID uuid, double amount) {
         SQLLog log = new SQLLog(auc, this, uuid, amount);
+        auctionPlugin().getDatabase().insertAsync(log, null);
+    }
+
+    protected void log(int auctionId, UUID uuid, double amount) {
+        SQLLog log = new SQLLog(auctionId, this, uuid, amount);
         auctionPlugin().getDatabase().insertAsync(log, null);
     }
 }

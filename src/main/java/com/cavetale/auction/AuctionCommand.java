@@ -2,6 +2,7 @@ package com.cavetale.auction;
 
 import com.cavetale.auction.gui.Gui;
 import com.cavetale.auction.sql.SQLAuction;
+import com.cavetale.auction.sql.SQLDelivery;
 import com.cavetale.auction.sql.SQLPlayerAuction;
 import com.cavetale.core.command.AbstractCommand;
 import com.cavetale.core.command.CommandArgCompleter;
@@ -10,6 +11,7 @@ import com.cavetale.core.command.CommandWarn;
 import com.cavetale.core.command.RemotePlayer;
 import com.cavetale.core.connect.Connect;
 import com.cavetale.core.connect.NetworkServer;
+import com.cavetale.core.connect.ServerCategory;
 import com.cavetale.core.money.Money;
 import com.cavetale.inventory.mail.ItemMail;
 import com.cavetale.mytems.item.coin.Coin;
@@ -19,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -56,12 +59,15 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
             .description("View your own auctions")
             .playerCaller(this::my);
         rootNode.addChild("info").arguments("<id>")
+            .completers(CommandArgCompleter.integer(i -> i > 0))
             .description("View auction info")
             .playerCaller(this::info);
         rootNode.addChild("ignore").arguments("<id>")
+            .completers(CommandArgCompleter.integer(i -> i > 0))
             .description("Ignore an auction")
             .playerCaller(this::ignore);
         rootNode.addChild("focus").arguments("<id>")
+            .completers(CommandArgCompleter.integer(i -> i > 0))
             .description("Focus an auction")
             .playerCaller(this::focus);
         bidNode = rootNode.addChild("bid").arguments("[id] <amount>")
@@ -75,6 +81,9 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
             .playerCaller(this::start);
         rootNode.addChild("startprice").denyTabCompletion().hidden(true)
             .playerCaller(this::startPrice);
+        rootNode.addChild("pickup").denyTabCompletion()
+            .description("Pick up a delivery")
+            .playerCaller(this::pickup);
     }
 
     private void listAuctionsInBook(Player player, List<Auction> auctions) {
@@ -235,6 +244,9 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
     }
 
     protected boolean bid(RemotePlayer player, String[] args) {
+        if (plugin.auctions.isAwaitingDeliveries(player.getUniqueId())) {
+            throw new CommandWarn("You have deliveries waiting for you!");
+        }
         if (args.length == 0) return false;
         if (args.length > 2) return false;
         final Auction auction;
@@ -259,6 +271,12 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
     }
 
     protected void start(Player player) {
+        if (!ServerCategory.current().isSurvival()) {
+            throw new CommandWarn("Must be in survival mode!");
+        }
+        if (plugin.auctions.isAwaitingDeliveries(player.getUniqueId())) {
+            throw new CommandWarn("You have deliveries waiting for you!");
+        }
         assertExclusivity(player, () -> start2(player), null);
     }
 
@@ -360,5 +378,58 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
         } else {
             ItemMail.send(player.getUniqueId(), inventory, text("Auction"));
         }
+    }
+
+    private void pickup(Player player) {
+        if (!ServerCategory.current().isSurvival()) {
+            throw new CommandWarn("Must be in survival mode!");
+        }
+        final UUID uuid = player.getUniqueId();
+        plugin.database.find(SQLDelivery.class)
+            .eq("owner", uuid)
+            .findUniqueAsync(row -> {
+                    if (row == null) {
+                        player.sendMessage(text("No deliveries found", RED));
+                        return;
+                    }
+                    if (row.getDebt() >= 0.01) {
+                        if (!Money.get().take(uuid, row.getDebt(), plugin, "Auction debt #" + row.getAuctionId())) {
+                            player.sendMessage(join(noSeparators(),
+                                                    text("You cannot afford the debt of ", RED),
+                                                    Coin.format(row.getDebt())));
+                            return;
+                        } else {
+                            Money.get().give(row.getMoneyRecipient(), row.getDebt(), plugin, "Auction #" + row.getAuctionId());
+                        }
+                    }
+                    plugin.database.deleteAsync(row, r -> {
+                            if (r == 0) {
+                                player.sendMessage(text("Delivery already gone", RED));
+                                return;
+                            }
+                            Connect.get().broadcastMessage(Auctions.CONNECT_DELIVERED, "");
+                            Inventory inv = row.parseInventory();
+                            if (!player.isOnline()) {
+                                retour(player, inv);
+                            } else {
+                                Gui gui = new Gui(plugin)
+                                    .size(inv.getSize())
+                                    .title(text("Auction", DARK_AQUA));
+                                for (int i = 0; i < inv.getSize(); i += 1) {
+                                    gui.setItem(i, inv.getItem(i));
+                                }
+                                gui.onClose(evt -> {
+                                        for (ItemStack item : gui.getInventory()) {
+                                            if (item == null || item.getType().isAir()) continue;
+                                            for (ItemStack drop : player.getInventory().addItem(item).values()) {
+                                                player.getWorld().dropItem(player.getEyeLocation(), drop).setPickupDelay(0);
+                                            }
+                                        }
+                                    });
+                                gui.open(player);
+                            }
+                            LogType.DELIVERED.log(row.getAuctionId(), uuid, row.getDebt());
+                        });
+                });
     }
 }

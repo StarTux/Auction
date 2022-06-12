@@ -5,7 +5,6 @@ import com.cavetale.auction.sql.SQLAuction;
 import com.cavetale.auction.sql.SQLDelivery;
 import com.cavetale.core.connect.NetworkServer;
 import com.cavetale.core.event.connect.ConnectMessageEvent;
-import com.cavetale.mytems.item.coin.Coin;
 import com.cavetale.sidebar.PlayerSidebarEvent;
 import com.cavetale.sidebar.Priority;
 import java.time.Duration;
@@ -28,12 +27,14 @@ import org.bukkit.event.Listener;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
+import static com.cavetale.core.font.Unicode.tiny;
 import static net.kyori.adventure.text.Component.join;
-import static net.kyori.adventure.text.Component.space;
 import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
-import static net.kyori.adventure.text.JoinConfiguration.separator;
+import static net.kyori.adventure.text.event.ClickEvent.runCommand;
+import static net.kyori.adventure.text.event.HoverEvent.showText;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
+import static net.kyori.adventure.text.format.TextDecoration.*;
 
 /**
  * Manage all active auctions.
@@ -46,6 +47,7 @@ import static net.kyori.adventure.text.format.NamedTextColor.*;
 public final class Auctions implements Listener {
     protected static final String CONNECT_REFRESH = "auction:refresh";
     protected static final String CONNECT_SCHEDULED = "auction:scheduled";
+    protected static final String CONNECT_DELIVERED = "auction:delivered";
     private static final Comparator<Auction> END_TIME_COMPARATOR = Comparator
         .comparing(auc -> auc.getAuctionRow().getEndTime());
     private static final Comparator<SQLAuction> CREATED_TIME_COMPARATOR = Comparator
@@ -80,6 +82,7 @@ public final class Auctions implements Listener {
             plugin.getLogger().info("Auction manager active!");
         }
         Bukkit.getScheduler().runTaskTimer(plugin, this::checkDeliveries, 0L, 200L);
+        Bukkit.getScheduler().runTaskTimer(plugin, this::remindDeliveries, 1200L, 1200L);
     }
 
     protected void refresh() {
@@ -104,6 +107,20 @@ public final class Auctions implements Listener {
                     deliveries.clear();
                     deliveries.addAll(uuids);
                 });
+    }
+
+    public void remindDeliveries() {
+        for (UUID uuid : deliveries) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null) continue;
+            String cmd = "/auc pickup";
+            player.sendMessage(join(noSeparators(),
+                                    text(tiny("Auction "), DARK_AQUA),
+                                    text("There is a delivery waiting for you: "),
+                                    text("/auc pickup", AQUA))
+                               .hoverEvent(showText(text(cmd, GREEN)))
+                               .clickEvent(runCommand(cmd)));
+        }
     }
 
     protected void schedule() {
@@ -151,7 +168,8 @@ public final class Auctions implements Listener {
     @EventHandler
     private void onPlayerSidebar(PlayerSidebarEvent event) {
         if (deliveries.contains(event.getPlayer().getUniqueId())) {
-            event.add(plugin, Priority.HIGHEST, List.of(text("You have an auction delivery", AQUA),
+            event.add(plugin, Priority.HIGHEST, List.of(text("You have an", RED, BOLD),
+                                                        text("auction delivery", RED, BOLD),
                                                         text("/auc pickup", YELLOW)));
         }
         if (!event.getPlayer().hasPermission("auction.auction")) return;
@@ -165,13 +183,11 @@ public final class Auctions implements Listener {
         Priority prio = Priority.LOW;
         for (int i = 0; i < playerAuctions.size(); i += 1) {
             Auction auction = playerAuctions.get(i);
+            if (!auction.isActive()) continue;
             boolean focus = auction.getListenType(uuid).isFocus();
             if (i > 0 && !focus) break;
             if (focus) prio = Priority.HIGH;
-            lines.add(auction.getItemTag());
-            lines.add(join(separator(space()),
-                           Format.duration(auction.getAuctionRow().getRemainingDuration()),
-                           Coin.format(auction.getAuctionRow().getCurrentPrice())));
+            lines.addAll(auction.getSidebarLines(uuid));
         }
         event.add(plugin, prio, lines);
     }
@@ -183,6 +199,8 @@ public final class Auctions implements Listener {
             refreshAuction(id);
         } else if (event.getChannel().equals(CONNECT_SCHEDULED)) {
             queueEmpty = false;
+        } else if (event.getChannel().equals(CONNECT_DELIVERED)) {
+            checkDeliveries();
         }
     }
 
@@ -251,5 +269,9 @@ public final class Auctions implements Listener {
             plugin.getLogger().info("scheduling...");
             schedule();
         }
+    }
+
+    public boolean isAwaitingDeliveries(UUID uuid) {
+        return deliveries.contains(uuid);
     }
 }

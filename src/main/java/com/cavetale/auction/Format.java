@@ -52,7 +52,7 @@ public final class Format {
             list.add(text(minutes % 60));
             list.add(text(Unicode.SMALLM.character, gray));
         }
-        list.add(text(seconds % 60));
+        list.add(text(Math.max(0, seconds % 60)));
         list.add(text(Unicode.SMALLS.character, gray));
         Component title = join(noSeparators(), list).color(invert(YELLOW, dark));
         Date then = Date.from(Instant.now().plus(duration));
