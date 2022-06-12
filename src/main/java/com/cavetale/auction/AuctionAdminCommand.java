@@ -1,21 +1,19 @@
 package com.cavetale.auction;
 
+import com.cavetale.auction.sql.SQLAuction;
 import com.cavetale.auction.sql.SQLDelivery;
 import com.cavetale.auction.sql.SQLLog;
 import com.cavetale.core.command.AbstractCommand;
 import com.cavetale.core.command.CommandArgCompleter;
-import com.cavetale.core.command.CommandNode;
 import com.cavetale.core.command.CommandWarn;
+import com.cavetale.core.connect.Connect;
 import com.winthier.playercache.PlayerCache;
 import java.util.List;
 import org.bukkit.command.CommandSender;
 import static net.kyori.adventure.text.Component.join;
 import static net.kyori.adventure.text.Component.space;
 import static net.kyori.adventure.text.Component.text;
-import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
 import static net.kyori.adventure.text.JoinConfiguration.separator;
-import static net.kyori.adventure.text.event.ClickEvent.runCommand;
-import static net.kyori.adventure.text.event.HoverEvent.showText;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
 import static net.kyori.adventure.text.format.TextDecoration.*;
 
@@ -35,6 +33,10 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
         rootNode.addChild("deliveries")
             .description("List deliveries")
             .senderCaller(this::deliveryList);
+        rootNode.addChild("cancel").arguments("<id>")
+            .description("Cancel an auction")
+            .completers(CommandArgCompleter.integer(i -> i > 0))
+            .senderCaller(this::cancel);
     }
 
     private void debug(CommandSender sender) {
@@ -72,10 +74,10 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
         }
         for (SQLDelivery row : rows) {
             String ownerName = row.getOwner() != null
-                ? PlayerCache.nameForUuid(row.getOwner())
+                ? row.getOwnerName()
                 : "N/A";
             String recipientName = row.getMoneyRecipient() != null
-                ? PlayerCache.nameForUuid(row.getMoneyRecipient())
+                ? row.getRecipientName()
                 : "N/A";
             sender.sendMessage(join(separator(space()),
                                     text("#" + row.getId(), DARK_GRAY),
@@ -86,5 +88,27 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
                                          row.hasDebt() ? DARK_RED : GRAY),
                                     text("rec=" + recipientName, GRAY)));
         }
+    }
+
+    private boolean cancel(CommandSender sender, String[] args) {
+        if (args.length != 1) return false;
+        int id = CommandArgCompleter.requireInt(args[0], i -> i > 0);
+        SQLAuction auction = plugin.database.find(SQLAuction.class)
+            .idEq(id).findUnique();
+        if (auction == null) {
+            throw new CommandWarn("Auction not found: " + id);
+        }
+        if (!auction.getState().isCancellable()) {
+            throw new CommandWarn("Auction cannot be cancelled: " + id);
+        }
+        auction.setState(AuctionState.CANCELLED);
+        auction.setExclusive(false);
+        plugin.database.update(auction, "state", "exclusive");
+        if (!auction.isServerAuction()) {
+            plugin.database.insert(new SQLDelivery(auction, auction.getOwner(), 0.0));
+        }
+        Connect.get().broadcastMessageToAll(Auctions.CONNECT_REFRESH, "" + id);
+        sender.sendMessage(text("Auction cancelled: " + id, AQUA));
+        return true;
     }
 }

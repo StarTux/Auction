@@ -3,6 +3,7 @@ package com.cavetale.auction.sql;
 import com.cavetale.auction.AuctionState;
 import com.cavetale.core.util.Json;
 import com.cavetale.inventory.storage.InventoryStorage;
+import com.winthier.playercache.PlayerCache;
 import com.winthier.sql.SQLRow.Id;
 import com.winthier.sql.SQLRow.Key;
 import com.winthier.sql.SQLRow.Name;
@@ -21,6 +22,7 @@ import org.bukkit.inventory.Inventory;
 @Key({"state", "endTime"})
 @Key({"exclusive", "owner"})
 public final class SQLAuction implements SQLRow {
+    public static final UUID SERVER_UUID = new UUID(0L, 0L);
     @Id private Integer id;
     private UUID owner;
     @Nullable private UUID winner;
@@ -77,5 +79,22 @@ public final class SQLAuction implements SQLRow {
 
     public boolean hasWinner() {
         return winner != null;
+    }
+
+    public String getOwnerName() {
+        if (owner == null) return "N/A";
+        return SERVER_UUID.equals(owner)
+            ? "The Server"
+            : PlayerCache.nameForUuid(owner);
+    }
+
+    public String getWinnerName() {
+        return winner != null
+            ? PlayerCache.nameForUuid(winner)
+            : "N/A";
+    }
+
+    public boolean isServerAuction() {
+        return SERVER_UUID.equals(owner);
     }
 }

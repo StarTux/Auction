@@ -84,6 +84,11 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
         rootNode.addChild("pickup").denyTabCompletion()
             .description("Pick up a delivery")
             .playerCaller(this::pickup);
+        rootNode.addChild("cancel").arguments("<id>")
+            .description("Cancel your auction")
+            .completers(CommandArgCompleter.integer(i -> i > 0))
+            .remoteServer(NetworkServer.manager())
+            .remotePlayerCaller(this::cancel);
     }
 
     private void listAuctionsInBook(Player player, List<Auction> auctions) {
@@ -399,7 +404,9 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
                                                     Coin.format(row.getDebt())));
                             return;
                         } else {
-                            Money.get().give(row.getMoneyRecipient(), row.getDebt(), plugin, "Auction #" + row.getAuctionId());
+                            if (!row.wasServerAuction()) {
+                                Money.get().give(row.getMoneyRecipient(), row.getDebt(), plugin, "Auction #" + row.getAuctionId());
+                            }
                         }
                     }
                     plugin.database.deleteAsync(row, r -> {
@@ -431,5 +438,40 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
                             LogType.DELIVERED.log(row.getAuctionId(), uuid, row.getDebt());
                         });
                 });
+    }
+
+    private boolean cancel(RemotePlayer player, String[] args) {
+        if (args.length != 1) return false;
+        int id = CommandArgCompleter.requireInt(args[0], i -> i > 0);
+        Auction auction = plugin.auctions.getActiveAuction(id);
+        if (auction != null) {
+            if (auction.getAuctionRow().hasWinner()) {
+                throw new CommandWarn("This auction has bids!");
+            }
+            auction.cancel(player.getUniqueId());
+            player.sendMessage(text("Auction cancelled", GREEN));
+            return true;
+        }
+        plugin.database.find(SQLAuction.class)
+            .idEq(id)
+            .findUniqueAsync(row -> CommandNode.wrap(player, () -> {
+                        if (row == null || !row.isOwner(player.getUniqueId()) || !row.getState().isScheduled()) {
+                            throw new CommandWarn("Auction not found: " + id);
+                        }
+                        plugin.database.update(SQLAuction.class)
+                            .row(row)
+                            .atomic("state", AuctionState.CANCELLED)
+                            .set("exclusive", false)
+                            .async(r -> CommandNode.wrap(player, () -> {
+                                        if (r == null) {
+                                            throw new CommandWarn("Auction not found: " + id);
+                                        }
+                                        plugin.database.insertAsync(new SQLDelivery(row, row.getOwner(), 0.0), rr -> {
+                                                player.sendMessage(text("Auction cancelled", GREEN));
+                                                plugin.auctions.checkDeliveries();
+                                            });
+                                    }));
+                    }));
+        return true;
     }
 }

@@ -179,7 +179,7 @@ public final class Auctions implements Listener {
         if (playerAuctions.isEmpty()) return;
         List<Component> lines = new ArrayList<>();
         lines.add(join(noSeparators(),
-                       text("Current ", AQUA), text("/auc", YELLOW), text("tions", AQUA)));
+                       text("Current ", AQUA), text("/auc", YELLOW), text("tion", AQUA)));
         Priority prio = Priority.LOW;
         for (int i = 0; i < playerAuctions.size(); i += 1) {
             Auction auction = playerAuctions.get(i);

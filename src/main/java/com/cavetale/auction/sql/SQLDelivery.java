@@ -2,6 +2,7 @@ package com.cavetale.auction.sql;
 
 import com.cavetale.core.util.Json;
 import com.cavetale.inventory.storage.InventoryStorage;
+import com.winthier.playercache.PlayerCache;
 import com.winthier.sql.SQLRow.Name;
 import com.winthier.sql.SQLRow.NotNull;
 import com.winthier.sql.SQLRow;
@@ -12,6 +13,7 @@ import org.bukkit.inventory.Inventory;
 
 @Data @NotNull @Name("deliveries")
 public final class SQLDelivery implements SQLRow {
+    public static final UUID SERVER_UUID = new UUID(0L, 0L);
     @Id private Integer id;
     private int auctionId;
     @Keyed private UUID owner;
@@ -41,5 +43,23 @@ public final class SQLDelivery implements SQLRow {
 
     public boolean hasDebt() {
         return debt >= 0.01;
+    }
+
+    public String getOwnerName() {
+        return owner != null
+            ? PlayerCache.nameForUuid(owner)
+            : "N/A";
+    }
+
+    public String getRecipientName() {
+        return moneyRecipient != null
+            ? (SERVER_UUID.equals(moneyRecipient)
+               ? "The Server"
+               : PlayerCache.nameForUuid(moneyRecipient))
+            : "N/A";
+    }
+
+    public boolean wasServerAuction() {
+        return SERVER_UUID.equals(moneyRecipient);
     }
 }

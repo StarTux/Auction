@@ -13,7 +13,6 @@ import com.cavetale.core.money.Money;
 import com.cavetale.core.perm.Perm;
 import com.cavetale.mytems.Mytems;
 import com.cavetale.mytems.item.coin.Coin;
-import com.winthier.playercache.PlayerCache;
 import java.text.DecimalFormat;
 import java.time.Duration;
 import java.time.Instant;
@@ -99,12 +98,11 @@ public final class Auction {
     }
 
     public boolean isActive() {
-        return !loading
-            && auctionRow.getState().isActive();
+        return !loading && auctionRow.getState().isActive();
     }
 
     public boolean hasEnded() {
-        return !loading && auctionRow != null && auctionRow.getState().isEnded();
+        return !loading && !auctionRow.getState().isActive();
     }
 
     public void load() {
@@ -222,17 +220,18 @@ public final class Auction {
         return text(tiny("Auction"), DARK_AQUA);
     }
 
-    public Component getBidTag(boolean big) {
+    public Component getBidTag(boolean big, boolean run) {
         double bidAmount = auctionRow.hasWinner()
             ? auctionRow.getCurrentPrice() + 1.0
             : auctionRow.getCurrentPrice();
-        String cmd = "/bid " + id + " " + Mytems.PLUS_BUTTON.format(bidAmount);
+        String cmd = "/bid " + id + " " + MONEY_FORMAT.format(bidAmount);
         Component text = big
-            ? join(noSeparators(), text("["), Mytems.GOLDEN_COIN, text("Bid]")).color(BLUE)
+            ? join(noSeparators(), text("["), Mytems.PLUS_BUTTON, text("Bid]")).color(BLUE)
             : Mytems.PLUS_BUTTON.component;
         return text
-            .clickEvent(runCommand(cmd))
+            .clickEvent(run ? runCommand(cmd) : suggestCommand(cmd))
             .hoverEvent(showText(join(separator(newline()),
+                                      text(cmd, GREEN),
                                       Coin.format(bidAmount),
                                       text("Bid on this auction", GRAY),
                                       text(tiny("Bid amounts are hidden."), DARK_GRAY),
@@ -330,7 +329,7 @@ public final class Auction {
 
     public Component getAnnouncementMessage() {
         return join(noSeparators(),
-                    getBidTag(false),
+                    getBidTag(false, false),
                     getFocusTag(false),
                     getIgnoreTag(false),
                     space(),
@@ -352,6 +351,13 @@ public final class Auction {
         }
         final double price = auctionRow.getCurrentPrice();
         if (auctionRow.hasWinner() && amount - price < 0.01) {
+            if (Math.abs(amount - price) < 0.01) {
+                player.sendMessage(join(separator(space()),
+                                        getBidTag(true, false),
+                                        text("Click here to bid more than ", GREEN),
+                                        Coin.format(price)));
+                return;
+            }
             throw new CommandWarn(join(noSeparators(), text("You must bid more than ", RED), Coin.format(price)));
         } else if (amount < price) {
             throw new CommandWarn(join(noSeparators(), text("You must bid at least ", RED), Coin.format(price)));
@@ -403,7 +409,7 @@ public final class Auction {
         } else if (bidType.isWinner()) {
             announce(ListenType.FOCUS,
                      join(noSeparators(),
-                          getBidTag(false),
+                          getBidTag(false, false),
                           getIgnoreTag(false),
                           getAuctionTag(),
                           space(),
@@ -467,7 +473,7 @@ public final class Auction {
         if (auctionRow.hasWinner()) {
             LogType.WIN.log(auctionRow, auctionRow.getWinner(), auctionRow.getCurrentPrice());
             boolean paid = Money.get().take(auctionRow.getWinner(), auctionRow.getCurrentPrice(), plugin, "Win auction #" + id);
-            if (paid) {
+            if (paid && !auctionRow.isServerAuction()) {
                 Money.get().give(auctionRow.getOwner(), auctionRow.getCurrentPrice(), plugin, "Auction #" + id);
             }
             double debt = paid
@@ -480,20 +486,36 @@ public final class Auction {
             announce(ListenType.DEFAULT, join(noSeparators(),
                                               getAuctionTag(),
                                               space(),
-                                              text(PlayerCache.nameForUuid(auctionRow.getWinner())),
+                                              text(auctionRow.getWinnerName()),
                                               text(tiny(" wins "), DARK_GRAY),
                                               getItemTag(),
                                               text(tiny(" for "), DARK_GRAY),
                                               Coin.format(auctionRow.getCurrentPrice())));
         } else {
             LogType.FAIL.log(auctionRow, null, 0.0);
-            plugin.database.insertAsync(new SQLDelivery(auctionRow, auctionRow.getOwner(), 0.0), r -> plugin.auctions.checkDeliveries());
+            if (!auctionRow.isServerAuction()) {
+                plugin.database.insertAsync(new SQLDelivery(auctionRow, auctionRow.getOwner(), 0.0), r -> plugin.auctions.checkDeliveries());
+            }
             announce(ListenType.DEFAULT, join(noSeparators(),
                                               getAuctionTag(),
                                               space(),
                                               text(tiny(" ended: "), DARK_GRAY),
                                               getItemTag()));
         }
+    }
+
+    public void cancel(UUID sender) {
+        auctionRow.setState(AuctionState.CANCELLED);
+        auctionRow.setExclusive(false);
+        plugin.database.updateAsync(auctionRow, Set.of("state", "exclusive"), r -> {
+                if (r == 0) return;
+                Connect.get().broadcastMessage(Auctions.CONNECT_REFRESH, "" + id);
+                if (!auctionRow.isServerAuction()) {
+                    plugin.database.insertAsync(new SQLDelivery(auctionRow, auctionRow.getOwner(), 0.0), rr -> {
+                            plugin.auctions.checkDeliveries();
+                        });
+                }
+            });
     }
 
     protected void announce(ListenType listenType, Function<RemotePlayer, Component> func) {
@@ -525,11 +547,14 @@ public final class Auction {
                        getIconTag(),
                        Format.money(auctionRow.getCurrentPrice(), true)));
         lines.add(join(separator(space()), space(),
+                       text(tiny("owner"), GRAY),
+                       text(auctionRow.getOwnerName(), BLUE)));
+        lines.add(join(separator(space()), space(),
                        (isActive()
                         ? Format.duration(auctionRow.getRemainingDuration(), true)
                         : auctionRow.getState().displayName),
                        (auctionRow.hasWinner()
-                        ? text(PlayerCache.nameForUuid(auctionRow.getWinner()))
+                        ? text(auctionRow.getWinnerName())
                         : empty())));
         for (int i = 0; i < lines.size(); i += 1) {
             Component line = lines.get(i);
@@ -552,9 +577,9 @@ public final class Auction {
         }
         lines.add(join(noSeparators(), text(tiny("items "), gray), getIconTag()));
         lines.add(join(noSeparators(), text(tiny("price "), gray), Format.money(auctionRow.getCurrentPrice(), dark)));
-        lines.add(join(noSeparators(), text(tiny("owner "), gray), text(PlayerCache.nameForUuid(auctionRow.getOwner()), hl)));
+        lines.add(join(noSeparators(), text(tiny("owner "), gray), text(auctionRow.getOwnerName(), hl)));
         if (auctionRow.hasWinner()) {
-            lines.add(join(noSeparators(), text(tiny("winner "), gray), text(PlayerCache.nameForUuid(auctionRow.getWinner()), hl)));
+            lines.add(join(noSeparators(), text(tiny("winner "), gray), text(auctionRow.getWinnerName(), hl)));
         }
         SQLPlayerAuction playerAuction = players.get(target);
         if (playerAuction != null && playerAuction.getBid() >= 0.01) {
@@ -570,10 +595,10 @@ public final class Auction {
         }
         if (!auctionRow.isOwner(target)) {
             if (auctionRow.getState().isActive()) {
-                buttons.add(getBidTag(true));
+                buttons.add(getBidTag(true, true));
             }
         } else {
-            if (auctionRow.getState().isScheduled() || auctionRow.getState().isActive() && !auctionRow.hasWinner()) {
+            if (auctionRow.getState().isCancellable() && !auctionRow.hasWinner()) {
                 buttons.add(getCancelTag(true));
             }
         }
