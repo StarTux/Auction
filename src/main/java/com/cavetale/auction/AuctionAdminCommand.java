@@ -1,5 +1,6 @@
 package com.cavetale.auction;
 
+import com.cavetale.auction.gui.Gui;
 import com.cavetale.auction.sql.SQLAuction;
 import com.cavetale.auction.sql.SQLDelivery;
 import com.cavetale.auction.sql.SQLLog;
@@ -8,11 +9,14 @@ import com.cavetale.core.command.CommandArgCompleter;
 import com.cavetale.core.command.CommandWarn;
 import com.cavetale.core.connect.Connect;
 import com.winthier.playercache.PlayerCache;
+import java.time.Duration;
 import java.util.List;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import static net.kyori.adventure.text.Component.join;
 import static net.kyori.adventure.text.Component.space;
 import static net.kyori.adventure.text.Component.text;
+import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
 import static net.kyori.adventure.text.JoinConfiguration.separator;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
 import static net.kyori.adventure.text.format.TextDecoration.*;
@@ -26,21 +30,61 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
     protected void onEnable() {
         rootNode.addChild("debug").denyTabCompletion()
             .senderCaller(this::debug);
+        rootNode.addChild("info").arguments("<id>")
+            .completers(CommandArgCompleter.supplyList(plugin.auctions::complete))
+            .description("View auction info")
+            .senderCaller(this::info);
         rootNode.addChild("log").arguments("<id>")
-            .completers(CommandArgCompleter.integer(i -> i > 0))
+            .completers(CommandArgCompleter.supplyList(plugin.auctions::complete))
             .description("View auction logs")
             .senderCaller(this::auctionLog);
         rootNode.addChild("deliveries")
             .description("List deliveries")
             .senderCaller(this::deliveryList);
         rootNode.addChild("cancel").arguments("<id>")
+            .completers(CommandArgCompleter.supplyList(plugin.auctions::complete))
             .description("Cancel an auction")
-            .completers(CommandArgCompleter.integer(i -> i > 0))
             .senderCaller(this::cancel);
+        rootNode.addChild("bankauction").arguments("<price> <minutes>")
+            .description("Start a bank auction")
+            .completers(CommandArgCompleter.integer(i -> i >= 0),
+                        CommandArgCompleter.integer(i -> i > 0))
+            .playerCaller(this::bankAuction);
     }
 
     private void debug(CommandSender sender) {
         plugin.auctions.debug(sender);
+    }
+
+    private boolean info(CommandSender sender, String[] args) {
+        if (args.length != 1) return false;
+        int id = CommandArgCompleter.requireInt(args[0], i -> i > 0);
+        SQLAuction row = plugin.database.find(SQLAuction.class).idEq(id).findUnique();
+        if (row == null) {
+            throw new CommandWarn("Auction not found: " + id);
+        }
+        sender.sendMessage(join(noSeparators(), text("id ", AQUA), text(row.getId(), YELLOW)));
+        sender.sendMessage(join(noSeparators(), text("owner ", AQUA), text(row.getOwnerName(), YELLOW)));
+        sender.sendMessage(join(noSeparators(), text("winner ", AQUA), text(row.getWinnerName(), YELLOW)));
+        sender.sendMessage(join(noSeparators(), text("state ", AQUA), text(row.getState().name(), YELLOW)));
+        sender.sendMessage(join(noSeparators(), text("bidCount ", AQUA), text(row.getBidCount(), YELLOW)));
+        sender.sendMessage(join(noSeparators(), text("bid ", AQUA),
+                                text(Auction.MONEY_FORMAT.format(row.getCurrentBid()), YELLOW)));
+        sender.sendMessage(join(noSeparators(), text("price ", AQUA),
+                                text(Auction.MONEY_FORMAT.format(row.getCurrentPrice()), YELLOW)));
+        sender.sendMessage(join(noSeparators(), text("highest ", AQUA),
+                                text(Auction.MONEY_FORMAT.format(row.getHighestBid()), YELLOW)));
+        sender.sendMessage(join(noSeparators(), text("auctionFee ", AQUA),
+                                text(Auction.MONEY_FORMAT.format(row.getAuctionFee()), YELLOW)));
+        sender.sendMessage(join(noSeparators(), text("created ", AQUA), text(Format.date(row.getCreatedTime()), YELLOW)));
+        sender.sendMessage(join(noSeparators(), text("duration ", AQUA), text(row.getFullDuration(), YELLOW)));
+        sender.sendMessage(join(noSeparators(), text("start ", AQUA), text(Format.date(row.getStartTime()), YELLOW)));
+        sender.sendMessage(join(noSeparators(), text("end ", AQUA), text(Format.date(row.getEndTime()), YELLOW)));
+        sender.sendMessage(join(noSeparators(), text("announced ", AQUA), text(Format.date(row.getAnnouncedTime()), YELLOW)));
+        Auction auction = new Auction(plugin, row);
+        auction.computeItems();
+        sender.sendMessage(join(noSeparators(), text("items ", AQUA), auction.getItemTag()));
+        return true;
     }
 
     private boolean auctionLog(CommandSender sender, String[] args) {
@@ -109,6 +153,26 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
         }
         Connect.get().broadcastMessageToAll(Auctions.CONNECT_REFRESH, "" + id);
         sender.sendMessage(text("Auction cancelled: " + id, AQUA));
+        return true;
+    }
+
+    private boolean bankAuction(Player player, String[] args) {
+        if (args.length != 2) return false;
+        int price = CommandArgCompleter.requireInt(args[0], i -> i >= 0);
+        int minutes = CommandArgCompleter.requireInt(args[1], i -> i > 0);
+        Gui gui = new Gui(plugin)
+            .size(6 * 9)
+            .title(text("Bank Auction", DARK_RED));
+        gui.setEditable(true);
+        gui.onClose(evt -> {
+                if (gui.getInventory().isEmpty()) return;
+                SQLAuction auction = new SQLAuction(SQLAuction.SERVER_UUID, (double) price, gui.getInventory(), Duration.ofMinutes(minutes));
+                plugin.database.insert(auction);
+                LogType.CREATE.log(auction, player.getUniqueId(), (double) price);
+                Connect.get().broadcastMessageToAll(Auctions.CONNECT_SCHEDULED, "");
+                player.sendMessage(text("Auction scheduled", AQUA));
+            });
+        gui.open(player);
         return true;
     }
 }

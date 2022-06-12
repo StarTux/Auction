@@ -54,7 +54,7 @@ public final class Format {
         }
         list.add(text(Math.max(0, seconds % 60)));
         list.add(text(Unicode.SMALLS.character, gray));
-        Component title = join(noSeparators(), list).color(invert(YELLOW, dark));
+        Component title = join(noSeparators(), list).color(invert(AQUA, dark));
         Date then = Date.from(Instant.now().plus(duration));
         return title
             .hoverEvent(showText(join(separator(newline()),

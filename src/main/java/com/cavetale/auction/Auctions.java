@@ -274,4 +274,12 @@ public final class Auctions implements Listener {
     public boolean isAwaitingDeliveries(UUID uuid) {
         return deliveries.contains(uuid);
     }
+
+    public List<String> complete() {
+        List<String> list = new ArrayList<>(auctionMap.size());
+        for (Integer id : auctionMap.keySet()) {
+            list.add("" + id);
+        }
+        return list;
+    }
 }

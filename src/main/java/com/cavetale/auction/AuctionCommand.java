@@ -47,7 +47,7 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
     protected void onEnable() {
         rootNode.addChild("preview").arguments("<id>")
             .description("Auction preview")
-            .completers(CommandArgCompleter.integer(i -> i > 0))
+            .completers(CommandArgCompleter.supplyList(plugin.auctions::complete))
             .playerCaller(this::preview);
         rootNode.addChild("list").denyTabCompletion()
             .description("List current auctions")
@@ -58,16 +58,16 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
         rootNode.addChild("my").denyTabCompletion()
             .description("View your own auctions")
             .playerCaller(this::my);
-        rootNode.addChild("info").arguments("<id>")
-            .completers(CommandArgCompleter.integer(i -> i > 0))
+        rootNode.addChild("info").arguments("[id]")
+            .completers(CommandArgCompleter.supplyList(plugin.auctions::complete))
             .description("View auction info")
             .playerCaller(this::info);
         rootNode.addChild("ignore").arguments("<id>")
-            .completers(CommandArgCompleter.integer(i -> i > 0))
+            .completers(CommandArgCompleter.supplyList(plugin.auctions::complete))
             .description("Ignore an auction")
             .playerCaller(this::ignore);
         rootNode.addChild("focus").arguments("<id>")
-            .completers(CommandArgCompleter.integer(i -> i > 0))
+            .completers(CommandArgCompleter.supplyList(plugin.auctions::complete))
             .description("Focus an auction")
             .playerCaller(this::focus);
         bidNode = rootNode.addChild("bid").arguments("[id] <amount>")
@@ -86,7 +86,7 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
             .playerCaller(this::pickup);
         rootNode.addChild("cancel").arguments("<id>")
             .description("Cancel your auction")
-            .completers(CommandArgCompleter.integer(i -> i > 0))
+            .completers(CommandArgCompleter.supplyList(plugin.auctions::complete))
             .remoteServer(NetworkServer.manager())
             .remotePlayerCaller(this::cancel);
     }
@@ -154,18 +154,22 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
             .findListAsync(rows -> listAuctionRowsInBook(player, rows));
     }
 
+    private void viewAuctionInBook(Player player, Auction auction) {
+        ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
+        book.editMeta(m -> {
+                if (!(m instanceof BookMeta meta)) return;
+                meta.setAuthor("cavetale");
+                meta.title(text("auction"));
+                meta.pages(join(separator(newline()), auction.getInfoLines(player.getUniqueId(), true)));
+            });
+        player.openBook(book);
+    }
+
     private void viewAuctionInBook(Player player, SQLAuction row) {
         Auction auction = new Auction(plugin, row);
         auction.computeItems();
         auction.loadPlayers(() -> {
-                ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
-                book.editMeta(m -> {
-                        if (!(m instanceof BookMeta meta)) return;
-                        meta.setAuthor("cavetale");
-                        meta.title(text("auction"));
-                        meta.pages(join(separator(newline()), auction.getInfoLines(player.getUniqueId(), true)));
-                    });
-                player.openBook(book);
+                viewAuctionInBook(player, auction);
             });
     }
 
@@ -182,7 +186,15 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
     }
 
     private boolean info(Player player, String[] args) {
-        if (args.length != 1) return false;
+        if (args.length > 1) return false;
+        if (args.length == 0) {
+            List<Auction> playerAuctions = plugin.auctions.getPlayerAuctions(player.getUniqueId());
+            if (playerAuctions.isEmpty()) {
+                throw new CommandWarn("No auctions to show");
+            }
+            viewAuctionInBook(player, playerAuctions.get(0));
+            return true;
+        }
         int id = CommandArgCompleter.requireInt(args[0], i -> i > 0);
         viewAuctionInBook(player, id);
         return true;
@@ -248,6 +260,20 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
         return listen(player, ListenType.FOCUS, args);
     }
 
+    private double requireMoney(String arg) {
+        double amount;
+        try {
+            amount = Double.parseDouble(arg);
+        } catch (NumberFormatException nfe) {
+            throw new CommandWarn("Coin amount expected: " + arg);
+        }
+        if (Double.isNaN(amount) || Double.isInfinite(amount)) {
+            throw new CommandWarn("Coin amount expected: " + amount);
+        }
+        int integer = (int) Math.floor(amount * 100.0);
+        return ((double) integer) / 100.0;
+    }
+
     protected boolean bid(RemotePlayer player, String[] args) {
         if (plugin.auctions.isAwaitingDeliveries(player.getUniqueId())) {
             throw new CommandWarn("You have deliveries waiting for you!");
@@ -258,13 +284,13 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
         final double amount;
         if (args.length == 2) {
             int id = CommandArgCompleter.requireInt(args[0], i -> i > 0);
-            amount = (double) CommandArgCompleter.requireInt(args[1], i -> i > 0);
+            amount = requireMoney(args[1]);
             auction = plugin.auctions.getActiveAuction(id);
             if (auction == null) {
                 throw new CommandWarn("Auction not found: " + id);
             }
         } else {
-            amount = (double) CommandArgCompleter.requireInt(args[0], i -> i > 0);
+            amount = requireMoney(args[0]);
             List<Auction> aucs = plugin.auctions.getPlayerAuctions(player.getUniqueId());
             if (aucs.isEmpty()) {
                 throw new CommandWarn("Auction not found");
@@ -414,7 +440,7 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
                                 player.sendMessage(text("Delivery already gone", RED));
                                 return;
                             }
-                            Connect.get().broadcastMessage(Auctions.CONNECT_DELIVERED, "");
+                            Connect.get().broadcastMessageToAll(Auctions.CONNECT_DELIVERED, "");
                             Inventory inv = row.parseInventory();
                             if (!player.isOnline()) {
                                 retour(player, inv);
