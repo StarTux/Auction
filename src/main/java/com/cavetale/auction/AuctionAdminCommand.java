@@ -50,6 +50,10 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
             .completers(CommandArgCompleter.integer(i -> i >= 0),
                         CommandArgCompleter.integer(i -> i > 0))
             .playerCaller(this::bankAuction);
+        rootNode.addChild("delete").arguments("<id>")
+            .description("Delete an auction")
+            .completers(CommandArgCompleter.integer(i -> i > 0))
+            .senderCaller(this::delete);
     }
 
     private void debug(CommandSender sender) {
@@ -167,12 +171,35 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
         gui.onClose(evt -> {
                 if (gui.getInventory().isEmpty()) return;
                 SQLAuction auction = new SQLAuction(SQLAuction.SERVER_UUID, (double) price, gui.getInventory(), Duration.ofMinutes(minutes));
-                plugin.database.insert(auction);
+                List<Integer> ids = plugin.database.find(SQLAuction.class).findValues("id", Integer.class);
+                for (int i = 1;; i += 1) {
+                    if (ids.contains(i)) continue;
+                    auction.setId(i);
+                    int res = plugin.database.insertIgnore(auction);
+                    if (res != 0) break;
+                }
                 LogType.CREATE.log(auction, player.getUniqueId(), (double) price);
                 Connect.get().broadcastMessageToAll(Auctions.CONNECT_SCHEDULED, "");
-                player.sendMessage(text("Auction scheduled", AQUA));
+                player.sendMessage(text("Auction scheduled: " + auction.getId(), AQUA));
             });
         gui.open(player);
+        return true;
+    }
+
+    private boolean delete(CommandSender sender, String[] args) {
+        if (args.length != 1) return false;
+        int id = CommandArgCompleter.requireInt(args[0], i -> i > 0);
+        plugin.auctions.deleteAuction(id, (int[] r) -> {
+                if (r[0] == 0 && r[1] == 0 && r[2] == 0) {
+                    sender.sendMessage(text("Nothing was deleted!", RED));
+                } else {
+                    sender.sendMessage(text("Auction deleted:"
+                                            + " auctions:" + r[0]
+                                            + " logs:" + r[1]
+                                            + " players:" + r[2],
+                                            AQUA));
+                }
+            });
         return true;
     }
 }

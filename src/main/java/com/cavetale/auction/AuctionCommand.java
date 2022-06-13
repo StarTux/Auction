@@ -55,6 +55,9 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
         rootNode.addChild("hist").denyTabCompletion()
             .description("View auction history")
             .playerCaller(this::hist);
+        rootNode.addChild("queue").denyTabCompletion()
+            .description("View auction queue")
+            .playerCaller(this::queue);
         rootNode.addChild("my").denyTabCompletion()
             .description("View your own auctions")
             .playerCaller(this::my);
@@ -96,18 +99,9 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
             player.sendMessage(text("No auctions to show", RED));
             return;
         }
-        List<Component> pages = new ArrayList<>();
-        List<Component> lines = new ArrayList<>();
+        List<Component> pages = new ArrayList<>(auctions.size());
         for (Auction auction : auctions) {
-            List<Component> newLines = auction.getBookLines(player.getUniqueId());
-            if (lines.size() + newLines.size() >= 10) {
-                pages.add(join(separator(newline()), lines));
-                lines.clear();
-            }
-            lines.addAll(newLines);
-        }
-        if (!lines.isEmpty()) {
-            pages.add(join(separator(newline()), lines));
+            pages.add(join(separator(newline()), auction.getInfoLines(player.getUniqueId(), true)));
         }
         ItemStack book = new ItemStack(Material.WRITTEN_BOOK);
         book.editMeta(m -> {
@@ -143,6 +137,13 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
             .eq("state", AuctionState.ENDED)
             .gte("endTime", then)
             .orderByAscending("endTime")
+            .findListAsync(rows -> listAuctionRowsInBook(player, rows));
+    }
+
+    private void queue(Player player) {
+        plugin.database.find(SQLAuction.class)
+            .eq("state", AuctionState.SCHEDULED)
+            .orderByAscending("createdTime")
             .findListAsync(rows -> listAuctionRowsInBook(player, rows));
     }
 
@@ -188,11 +189,7 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
     private boolean info(Player player, String[] args) {
         if (args.length > 1) return false;
         if (args.length == 0) {
-            List<Auction> playerAuctions = plugin.auctions.getPlayerAuctions(player.getUniqueId());
-            if (playerAuctions.isEmpty()) {
-                throw new CommandWarn("No auctions to show");
-            }
-            viewAuctionInBook(player, playerAuctions.get(0));
+            listAuctionsInBook(player, plugin.auctions.getPlayerAuctions(player.getUniqueId()));
             return true;
         }
         int id = CommandArgCompleter.requireInt(args[0], i -> i > 0);
