@@ -576,9 +576,6 @@ public final class Auction {
     protected void announce(ListenType listenType, Set<UUID> targets, Function<UUID, Component> func) {
         for (RemotePlayer player : Connect.get().getRemotePlayers()) {
             if (!targets.contains(player.getUniqueId())) {
-                if (!player.getOriginServerName().equals("alpha") && !player.getOriginServerName().equals("beta")) {
-                    continue; // debug
-                }
                 if (!getListenType(player.getUniqueId()).doesEntail(listenType)) {
                     continue;
                 }
