@@ -12,6 +12,7 @@ import com.cavetale.core.command.RemotePlayer;
 import com.cavetale.core.connect.Connect;
 import com.cavetale.core.connect.NetworkServer;
 import com.cavetale.core.connect.ServerCategory;
+import com.cavetale.core.connect.ServerGroup;
 import com.cavetale.core.money.Money;
 import com.cavetale.inventory.mail.ItemMail;
 import com.cavetale.mytems.item.coin.Coin;
@@ -77,7 +78,7 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
             .description("Place a bid")
             .completers(CommandArgCompleter.integer(i -> i > 0),
                         CommandArgCompleter.integer(i -> i > 0))
-            .remoteServer(NetworkServer.manager())
+            .remoteServer(NetworkServer.current().getManager())
             .remotePlayerCaller(this::bid);
         rootNode.addChild("start").denyTabCompletion()
             .permission("auction.start")
@@ -92,7 +93,7 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
         rootNode.addChild("cancel").arguments("<id>")
             .description("Cancel your auction")
             .completers(CommandArgCompleter.supplyList(plugin.auctions::complete))
-            .remoteServer(NetworkServer.manager())
+            .remoteServer(NetworkServer.current().getManager())
             .remotePlayerCaller(this::cancel);
     }
 
@@ -229,14 +230,14 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
                                     if (playerAuction.getListenType() != listenType) {
                                         playerAuction.setListenType(listenType);
                                         plugin.database.updateAsync(playerAuction, Set.of("listenType"), r -> {
-                                                Connect.get().broadcastMessageToAll(Auctions.CONNECT_REFRESH, "" + id);
+                                                Connect.get().broadcastMessageToAll(ServerGroup.current(), Auctions.CONNECT_REFRESH, "" + id);
                                             });
                                     }
                                 } else {
                                     playerAuction = new SQLPlayerAuction(id, player.getUniqueId());
                                     playerAuction.setListenType(listenType);
                                     plugin.database.insertAsync(playerAuction, r -> {
-                                            Connect.get().broadcastMessageToAll(Auctions.CONNECT_REFRESH, "" + id);
+                                            Connect.get().broadcastMessageToAll(ServerGroup.current(), Auctions.CONNECT_REFRESH, "" + id);
                                         });
                                 }
                                 if (listenType == ListenType.IGNORE) {
@@ -392,7 +393,7 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
                     return;
                 }
                 player.sendMessage(text("Auction scheduled!", GREEN));
-                Connect.get().broadcastMessageToAll(Auctions.CONNECT_SCHEDULED, "");
+                Connect.get().broadcastMessageToAll(ServerGroup.current(), Auctions.CONNECT_SCHEDULED, "");
                 LogType.CREATE.log(auction, player.getUniqueId(), price.price);
             });
     }
@@ -439,7 +440,7 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
                                 player.sendMessage(text("Delivery already gone", RED));
                                 return;
                             }
-                            Connect.get().broadcastMessageToAll(Auctions.CONNECT_DELIVERED, "");
+                            Connect.get().broadcastMessageToAll(ServerGroup.current(), Auctions.CONNECT_DELIVERED, "");
                             Inventory inv = row.parseInventory();
                             if (!player.isOnline()) {
                                 retour(player, inv);

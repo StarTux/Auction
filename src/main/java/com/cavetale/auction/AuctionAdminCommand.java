@@ -8,6 +8,7 @@ import com.cavetale.core.command.AbstractCommand;
 import com.cavetale.core.command.CommandArgCompleter;
 import com.cavetale.core.command.CommandWarn;
 import com.cavetale.core.connect.Connect;
+import com.cavetale.core.connect.ServerGroup;
 import com.winthier.playercache.PlayerCache;
 import java.time.Duration;
 import java.util.List;
@@ -154,7 +155,7 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
         if (!auction.isServerAuction()) {
             plugin.database.insert(new SQLDelivery(auction, auction.getOwner(), 0.0));
         }
-        Connect.get().broadcastMessageToAll(Auctions.CONNECT_REFRESH, "" + id);
+        Connect.get().broadcastMessageToAll(ServerGroup.current(), Auctions.CONNECT_REFRESH, "" + id);
         sender.sendMessage(text("Auction cancelled: " + id, AQUA));
         return true;
     }
@@ -178,7 +179,7 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
                     if (res != 0) break;
                 }
                 LogType.CREATE.log(auction, player.getUniqueId(), (double) price);
-                Connect.get().broadcastMessageToAll(Auctions.CONNECT_SCHEDULED, "");
+                Connect.get().broadcastMessageToAll(ServerGroup.current(), Auctions.CONNECT_SCHEDULED, "");
                 player.sendMessage(text("Auction scheduled: " + auction.getId(), AQUA));
             });
         gui.open(player);

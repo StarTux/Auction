@@ -6,6 +6,7 @@ import com.cavetale.auction.sql.SQLPlayerAuction;
 import com.cavetale.core.command.CommandWarn;
 import com.cavetale.core.command.RemotePlayer;
 import com.cavetale.core.connect.Connect;
+import com.cavetale.core.connect.ServerGroup;
 import com.cavetale.core.font.Unicode;
 import com.cavetale.core.font.VanillaEffects;
 import com.cavetale.core.font.VanillaItems;
@@ -493,7 +494,7 @@ public final class Auction {
         if (saveResult == 0) {
             plugin.getLogger().severe("Save failed: " + auctionRow);
         }
-        Connect.get().broadcastMessage(Auctions.CONNECT_REFRESH, "" + id);
+        Connect.get().broadcastMessage(ServerGroup.current(), Auctions.CONNECT_REFRESH, "" + id);
     }
 
     protected void managerTick() {
@@ -519,7 +520,7 @@ public final class Auction {
                     plugin.getLogger().severe("res == 0");
                     return;
                 }
-                Connect.get().broadcastMessage(Auctions.CONNECT_REFRESH, "" + id);
+                Connect.get().broadcastMessage(ServerGroup.current(), Auctions.CONNECT_REFRESH, "" + id);
             });
         computeItems();
         LogType.START.log(auctionRow, null, auctionRow.getCurrentPrice());
@@ -530,7 +531,7 @@ public final class Auction {
         auctionRow.setExclusive(false);
         plugin.database.updateAsync(auctionRow, Set.of("state", "exclusive"), res -> {
                 if (res == 0) return;
-                Connect.get().broadcastMessage(Auctions.CONNECT_REMOVE, "" + id);
+                Connect.get().broadcastMessage(ServerGroup.current(), Auctions.CONNECT_REMOVE, "" + id);
             });
         if (auctionRow.hasWinner()) {
             LogType.WIN.log(auctionRow, auctionRow.getWinner(), auctionRow.getCurrentPrice());
@@ -573,7 +574,7 @@ public final class Auction {
         auctionRow.setExclusive(false);
         plugin.database.updateAsync(auctionRow, Set.of("state", "exclusive"), r -> {
                 if (r == 0) return;
-                Connect.get().broadcastMessage(Auctions.CONNECT_REMOVE, "" + id);
+                Connect.get().broadcastMessage(ServerGroup.current(), Auctions.CONNECT_REMOVE, "" + id);
                 if (!auctionRow.isServerAuction()) {
                     plugin.database.insertAsync(new SQLDelivery(auctionRow, auctionRow.getOwner(), 0.0), rr -> {
                             plugin.auctions.checkDeliveries();
@@ -584,6 +585,7 @@ public final class Auction {
 
     protected void announce(ListenType listenType, Set<UUID> targets, Function<UUID, Component> func) {
         for (RemotePlayer player : Connect.get().getRemotePlayers()) {
+            if (player.getOriginServer().group != ServerGroup.current()) continue;
             if (!targets.contains(player.getUniqueId())) {
                 if (!getListenType(player.getUniqueId()).doesEntail(listenType)) {
                     continue;

@@ -7,6 +7,7 @@ import com.cavetale.auction.sql.SQLLog;
 import com.cavetale.auction.sql.SQLPlayerAuction;
 import com.cavetale.core.connect.Connect;
 import com.cavetale.core.connect.NetworkServer;
+import com.cavetale.core.connect.ServerGroup;
 import com.cavetale.core.event.connect.ConnectMessageEvent;
 import com.cavetale.sidebar.PlayerSidebarEvent;
 import com.cavetale.sidebar.Priority;
@@ -80,7 +81,7 @@ public final class Auctions implements Listener {
 
     protected void enable() {
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        manage = NetworkServer.current() == NetworkServer.manager();
+        manage = NetworkServer.current() == NetworkServer.current().getManager();
         refresh();
         if (manage) {
             Bukkit.getScheduler().runTaskTimer(plugin, this::managerTick, 0L, 20L);
@@ -302,7 +303,7 @@ public final class Auctions implements Listener {
         plugin.database.find(SQLAuction.class).idEq(id).deleteAsync(r -> results[0] += r);
         plugin.database.find(SQLLog.class).eq("auctionId", id).deleteAsync(r -> results[1] += r);
         plugin.database.find(SQLPlayerAuction.class).eq("auctionId", id).deleteAsync(r -> {
-                Connect.get().broadcastMessageToAll(Auctions.CONNECT_REMOVE, "" + id);
+                Connect.get().broadcastMessageToAll(ServerGroup.current(), Auctions.CONNECT_REMOVE, "" + id);
                 results[2] += r;
                 callback.accept(results);
             });
