@@ -215,7 +215,7 @@ public final class Auction {
                 && meta.hasBlockState()
                 && meta.getBlockState() instanceof Container container) {
                 for (ItemStack item2 : container.getInventory()) {
-                    if (item == null || item.getType().isAir()) continue;
+                    if (item2 == null || item2.getType().isAir()) continue;
                     allItems.add(item2);
                     totalItemCount += item2.getAmount();
                 }
