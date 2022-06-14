@@ -45,6 +45,10 @@ permissions:
     description: Start an auction
     default: op
 
+  auction.pickup:
+    description: Pick up deliveries
+    default: false
+
   auction.admin:
     description: Use /auctionadmin
     default: op

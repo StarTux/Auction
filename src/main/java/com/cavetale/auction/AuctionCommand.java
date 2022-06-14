@@ -80,11 +80,13 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
             .remoteServer(NetworkServer.manager())
             .remotePlayerCaller(this::bid);
         rootNode.addChild("start").denyTabCompletion()
+            .permission("auction.start")
             .description("Start an auction")
             .playerCaller(this::start);
         rootNode.addChild("startprice").denyTabCompletion().hidden(true)
             .playerCaller(this::startPrice);
         rootNode.addChild("pickup").denyTabCompletion()
+            .permission("auction.pickup")
             .description("Pick up a delivery")
             .playerCaller(this::pickup);
         rootNode.addChild("cancel").arguments("<id>")

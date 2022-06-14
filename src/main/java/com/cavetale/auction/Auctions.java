@@ -172,14 +172,15 @@ public final class Auctions implements Listener {
 
     @EventHandler
     private void onPlayerSidebar(PlayerSidebarEvent event) {
-        if (deliveries.contains(event.getPlayer().getUniqueId())) {
+        Player player = event.getPlayer();
+        final UUID uuid = player.getUniqueId();
+        if (deliveries.contains(uuid)) {
             event.add(plugin, Priority.HIGHEST, List.of(text("You have an", RED, BOLD),
                                                         text("auction delivery", RED, BOLD),
                                                         text("/auc pickup", YELLOW)));
         }
-        if (!event.getPlayer().hasPermission("auction.auction")) return;
+        if (!player.hasPermission("auction.auction")) return;
         if (auctionMap.isEmpty()) return;
-        final UUID uuid = event.getPlayer().getUniqueId();
         List<Auction> playerAuctions = getPlayerAuctions(uuid);
         if (playerAuctions.isEmpty()) return;
         List<Component> lines = new ArrayList<>();
