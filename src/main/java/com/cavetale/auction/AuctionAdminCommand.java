@@ -71,7 +71,6 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
         sender.sendMessage(join(noSeparators(), text("owner ", AQUA), text(row.getOwnerName(), YELLOW)));
         sender.sendMessage(join(noSeparators(), text("winner ", AQUA), text(row.getWinnerName(), YELLOW)));
         sender.sendMessage(join(noSeparators(), text("state ", AQUA), text(row.getState().name(), YELLOW)));
-        sender.sendMessage(join(noSeparators(), text("bidCount ", AQUA), text(row.getBidCount(), YELLOW)));
         sender.sendMessage(join(noSeparators(), text("bid ", AQUA),
                                 text(Auction.MONEY_FORMAT.format(row.getCurrentBid()), YELLOW)));
         sender.sendMessage(join(noSeparators(), text("price ", AQUA),

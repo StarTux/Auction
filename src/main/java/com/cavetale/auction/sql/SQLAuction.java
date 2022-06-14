@@ -32,7 +32,6 @@ public final class SQLAuction implements SQLRow {
      * auction.
      */
     private boolean exclusive;
-    private int bidCount;
     private double currentBid; // secret
     private double currentPrice; // shown
     private double highestBid; // secret
