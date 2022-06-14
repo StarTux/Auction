@@ -438,7 +438,7 @@ public final class Auction {
             bidType = BidType.SILENT;
         } else {
             if (winning) {
-                final double newPrice = Math.max(highest, auctionRow.getCurrentBid());
+                final double newPrice = Math.max(highest, price);
                 auctionRow.setCurrentBid(newPrice);
                 auctionRow.setCurrentPrice(newPrice);
                 auctionRow.setHighestBid(amount);
