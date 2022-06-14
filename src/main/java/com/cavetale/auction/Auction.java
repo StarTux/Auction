@@ -336,22 +336,31 @@ public final class Auction {
         return itemComponent.clickEvent(runCommand("/auc preview " + id));
     }
 
+    private Component bundleIconTag() {
+        ItemStack hoverItem = new ItemStack(Material.BUNDLE);
+        Component icon = join(noSeparators(), VanillaItems.BUNDLE, text(subscript(totalItemCount)));
+        hoverItem.editMeta(m -> {
+                if (m instanceof BundleMeta meta) {
+                    meta.setItems(allItemsStripped());
+                }
+                m.addItemFlags(ItemFlag.values());
+            });
+        return icon.hoverEvent(hoverItem.asHoverEvent());
+    }
+
     public Component getIconTag() {
         final Component itemComponent;
         if (itemMap.size() == 1) {
             ItemStack theItem = itemMap.keySet().iterator().next();
             int count = itemMap.getOrDefault(theItem, 1);
-            itemComponent = ItemKinds.iconDescription(theItem, count);
+            Component icon = ItemKinds.icon(theItem);
+            if (empty().equals(icon)) {
+                itemComponent = bundleIconTag();
+            } else {
+                itemComponent = ItemKinds.iconDescription(theItem, count);
+            }
         } else {
-            ItemStack hoverItem = new ItemStack(Material.BUNDLE);
-            Component icon = join(noSeparators(), VanillaItems.BUNDLE, text(subscript(totalItemCount)));
-            hoverItem.editMeta(m -> {
-                    if (m instanceof BundleMeta meta) {
-                        meta.setItems(allItemsStripped());
-                    }
-                    m.addItemFlags(ItemFlag.values());
-                });
-            itemComponent = icon.hoverEvent(hoverItem.asHoverEvent());
+            itemComponent = bundleIconTag();
         }
         return itemComponent.clickEvent(runCommand("/auc preview " + id));
     }
