@@ -208,7 +208,7 @@ public final class Auctions implements Listener {
             queueEmpty = false;
         } else if (event.getChannel().equals(CONNECT_DELIVERED)) {
             checkDeliveries();
-        } else if (event.getChannel().equals(CONNECT_DELIVERED)) {
+        } else if (event.getChannel().equals(CONNECT_REMOVE)) {
             int id = Integer.parseInt(event.getPayload());
             auctionMap.remove(id);
         }
