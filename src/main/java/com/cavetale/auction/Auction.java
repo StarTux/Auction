@@ -317,12 +317,36 @@ public final class Auction {
         return result;
     }
 
+    /**
+     * Prepare for single item view.
+     */
+    private static ItemStack stripped(ItemStack topItem) {
+        topItem = topItem.clone();
+        if (topItem.hasItemMeta()) {
+            topItem.editMeta(meta -> {
+                    meta.displayName(null);
+                    meta.lore(List.of());
+                    if (meta instanceof BlockStateMeta blockStateMeta
+                        && blockStateMeta.hasBlockState()
+                        && blockStateMeta.getBlockState() instanceof Container container) {
+                        for (ItemStack item : container.getInventory()) {
+                            item.editMeta(meta2 -> {
+                                    meta2.lore(List.of());
+                                });
+                        }
+                        blockStateMeta.setBlockState(container);
+                    }
+                });
+        }
+        return topItem;
+    }
+
     public Component getItemTag() {
         final Component itemComponent;
         if (itemMap.size() == 1) {
             ItemStack theItem = itemMap.keySet().iterator().next();
             int count = itemMap.getOrDefault(theItem, 1);
-            itemComponent = ItemKinds.chatDescription(theItem, count);
+            itemComponent = ItemKinds.chatDescription(stripped(theItem), count);
         } else {
             ItemStack hoverItem = new ItemStack(Material.BUNDLE);
             Component title = join(noSeparators(), text(totalItemCount), VanillaItems.BUNDLE, text("Items"));
@@ -354,11 +378,11 @@ public final class Auction {
         if (itemMap.size() == 1) {
             ItemStack theItem = itemMap.keySet().iterator().next();
             int count = itemMap.getOrDefault(theItem, 1);
-            Component icon = ItemKinds.icon(theItem);
+            Component icon = ItemKinds.icon(stripped(theItem));
             if (empty().equals(icon)) {
                 itemComponent = bundleIconTag();
             } else {
-                itemComponent = ItemKinds.iconDescription(theItem, count);
+                itemComponent = ItemKinds.iconDescription(stripped(theItem), count);
             }
         } else {
             itemComponent = bundleIconTag();
