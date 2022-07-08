@@ -12,6 +12,7 @@ import com.cavetale.core.connect.ServerGroup;
 import com.winthier.playercache.PlayerCache;
 import java.time.Duration;
 import java.util.List;
+import net.kyori.adventure.text.Component;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import static net.kyori.adventure.text.Component.join;
@@ -19,6 +20,8 @@ import static net.kyori.adventure.text.Component.space;
 import static net.kyori.adventure.text.Component.text;
 import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
 import static net.kyori.adventure.text.JoinConfiguration.separator;
+import static net.kyori.adventure.text.event.ClickEvent.suggestCommand;
+import static net.kyori.adventure.text.event.HoverEvent.showText;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
 import static net.kyori.adventure.text.format.TextDecoration.*;
 
@@ -31,6 +34,9 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
     protected void onEnable() {
         rootNode.addChild("debug").denyTabCompletion()
             .senderCaller(this::debug);
+        rootNode.addChild("hist").denyTabCompletion()
+            .description("List auction history")
+            .senderCaller(this::hist);
         rootNode.addChild("info").arguments("<id>")
             .completers(CommandArgCompleter.supplyList(plugin.auctions::complete))
             .description("View auction info")
@@ -59,6 +65,30 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
 
     private void debug(CommandSender sender) {
         plugin.auctions.debug(sender);
+    }
+
+    private void hist(CommandSender sender) {
+        plugin.database.find(SQLAuction.class)
+            .orderByAscending("createdTime")
+            .findListAsync(rows -> {
+                    Component colon = text(":", GRAY);
+                    for (SQLAuction row : rows) {
+                        sender.sendMessage(join(noSeparators(),
+                                                text("#" + row.getId(), YELLOW),
+                                                space(),
+                                                text("created"), colon, text(Format.BRIEF_DATE_FORMAT.format(row.getCreatedTime()), YELLOW),
+                                                space(),
+                                                text("state"), colon, text(row.getState().name().toLowerCase(), YELLOW),
+                                                space(),
+                                                text("owner"), colon, text(row.getOwnerName(), YELLOW),
+                                                space(),
+                                                text("price"), colon, text(Auction.MONEY_FORMAT.format(row.getCurrentPrice()), YELLOW),
+                                                space(),
+                                                text("winner"), colon, text(row.getWinnerName()))
+                                           .clickEvent(suggestCommand("/aucadm info " + row.getId()))
+                                           .hoverEvent(showText(text("/aucadm info " + row.getId(), YELLOW))));
+                    }
+                });
     }
 
     private boolean info(CommandSender sender, String[] args) {

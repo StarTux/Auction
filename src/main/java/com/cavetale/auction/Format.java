@@ -20,6 +20,7 @@ import static net.kyori.adventure.text.format.TextDecoration.*;
 
 public final class Format {
     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy MMM dd HH:mm:ss");
+    public static final SimpleDateFormat BRIEF_DATE_FORMAT = new SimpleDateFormat("yy/MM/d");
 
     public static TextColor invert(TextColor color, boolean dark) {
         return dark
