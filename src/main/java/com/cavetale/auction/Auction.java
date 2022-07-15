@@ -324,8 +324,6 @@ public final class Auction {
         topItem = topItem.clone();
         if (topItem.hasItemMeta()) {
             topItem.editMeta(meta -> {
-                    meta.displayName(null);
-                    meta.lore(List.of());
                     if (meta instanceof BlockStateMeta blockStateMeta
                         && blockStateMeta.hasBlockState()
                         && blockStateMeta.getBlockState() instanceof Container container) {
