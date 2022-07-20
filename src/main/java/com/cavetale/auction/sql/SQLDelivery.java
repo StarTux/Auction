@@ -2,7 +2,7 @@ package com.cavetale.auction.sql;
 
 import com.cavetale.core.util.Json;
 import com.cavetale.inventory.storage.InventoryStorage;
-import com.winthier.playercache.PlayerCache;
+import com.cavetale.core.playercache.PlayerCache;
 import com.winthier.sql.SQLRow.Name;
 import com.winthier.sql.SQLRow.NotNull;
 import com.winthier.sql.SQLRow;

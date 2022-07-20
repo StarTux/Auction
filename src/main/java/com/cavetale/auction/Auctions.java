@@ -9,8 +9,8 @@ import com.cavetale.core.connect.Connect;
 import com.cavetale.core.connect.NetworkServer;
 import com.cavetale.core.connect.ServerGroup;
 import com.cavetale.core.event.connect.ConnectMessageEvent;
-import com.cavetale.sidebar.PlayerSidebarEvent;
-import com.cavetale.sidebar.Priority;
+import com.cavetale.core.event.hud.PlayerHudEvent;
+import com.cavetale.core.event.hud.PlayerHudPriority;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -22,6 +22,7 @@ import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Consumer;
 import lombok.RequiredArgsConstructor;
+import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.block.Container;
@@ -171,14 +172,20 @@ public final class Auctions implements Listener {
         return result;
     }
 
+    private static final List<Component> DELIVERY_SIDEBAR = List.of(text("You have an", RED, BOLD),
+                                                                    text("auction delivery", RED, BOLD),
+                                                                    text("/auc pickup", YELLOW));
+    private static final Component DELIVERY_BOSS_BAR = join(noSeparators(),
+                                                            text("You have an auction delivery: ", RED),
+                                                            text("/auc pickup", YELLOW));
+
     @EventHandler
-    private void onPlayerSidebar(PlayerSidebarEvent event) {
+    private void onPlayerHud(PlayerHudEvent event) {
         Player player = event.getPlayer();
         final UUID uuid = player.getUniqueId();
         if (deliveries.contains(uuid)) {
-            event.add(plugin, Priority.HIGHEST, List.of(text("You have an", RED, BOLD),
-                                                        text("auction delivery", RED, BOLD),
-                                                        text("/auc pickup", YELLOW)));
+            event.sidebar(PlayerHudPriority.HIGH, DELIVERY_SIDEBAR);
+            event.bossbar(PlayerHudPriority.HIGH, DELIVERY_BOSS_BAR, BossBar.Color.RED, BossBar.Overlay.PROGRESS, 1.0f);
         }
         if (!player.hasPermission("auction.auction")) return;
         if (auctionMap.isEmpty()) return;
@@ -187,16 +194,16 @@ public final class Auctions implements Listener {
         List<Component> lines = new ArrayList<>();
         lines.add(join(noSeparators(),
                        text("Current ", AQUA), text("/auc", YELLOW), text("tion", AQUA)));
-        Priority prio = Priority.LOW;
+        PlayerHudPriority prio = PlayerHudPriority.LOW;
         for (int i = 0; i < playerAuctions.size(); i += 1) {
             Auction auction = playerAuctions.get(i);
             if (!auction.isActive()) continue;
             boolean focus = auction.getListenType(uuid).isFocus();
             if (i > 0 && !focus) break;
-            if (focus) prio = Priority.HIGH;
+            if (focus) prio = PlayerHudPriority.HIGH;
             lines.addAll(auction.getSidebarLines(uuid));
         }
-        event.add(plugin, prio, lines);
+        event.sidebar(prio, lines);
     }
 
     @EventHandler

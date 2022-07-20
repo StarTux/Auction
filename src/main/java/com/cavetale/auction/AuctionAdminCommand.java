@@ -9,7 +9,7 @@ import com.cavetale.core.command.CommandArgCompleter;
 import com.cavetale.core.command.CommandWarn;
 import com.cavetale.core.connect.Connect;
 import com.cavetale.core.connect.ServerGroup;
-import com.winthier.playercache.PlayerCache;
+import com.cavetale.core.playercache.PlayerCache;
 import java.time.Duration;
 import java.util.List;
 import net.kyori.adventure.text.Component;
