@@ -66,8 +66,7 @@ public final class Auction {
     private SQLAuction auctionRow;
     private Inventory inventory;
     private Map<ItemStack, Integer> itemMap = Map.of(); // single item display
-    private List<ItemStack> items = List.of(); // ???
-    private List<ItemStack> allItems = List.of(); // tooltip
+    private List<ItemStack> items = List.of();
     private int totalItemCount;
     private final Map<UUID, SQLPlayerAuction> players = new HashMap<>();
     private boolean loading;
@@ -197,17 +196,14 @@ public final class Auction {
         if (inventory == null) {
             itemMap = Map.of();
             items = List.of();
-            allItems = List.of();
             return;
         }
         itemMap = new IdentityHashMap<>();
         items = new ArrayList<>();
-        allItems = new ArrayList<>();
         totalItemCount = 0;
         for (ItemStack item : inventory) {
             if (item == null || item.getType().isAir()) continue;
             items.add(item);
-            allItems.add(item);
             addItemMap(item);
             totalItemCount += item.getAmount();
             if (item.hasItemMeta()
@@ -216,7 +212,6 @@ public final class Auction {
                 && meta.getBlockState() instanceof Container container) {
                 for (ItemStack item2 : container.getInventory()) {
                     if (item2 == null || item2.getType().isAir()) continue;
-                    allItems.add(item2);
                     totalItemCount += item2.getAmount();
                 }
             }
@@ -297,9 +292,9 @@ public final class Auction {
                                       text(tiny("items back."), DARK_GRAY))));
     }
 
-    private List<ItemStack> allItemsStripped() {
-        List<ItemStack> result = new ArrayList<>(allItems.size());
-        for (ItemStack item : allItems) {
+    private List<ItemStack> itemsStripped() {
+        List<ItemStack> result = new ArrayList<>(items.size());
+        for (ItemStack item : items) {
             item = item.clone();
             if (item.hasItemMeta()) {
                 item.editMeta(meta -> {
@@ -350,7 +345,7 @@ public final class Auction {
             Component title = join(noSeparators(), text(totalItemCount), VanillaItems.BUNDLE, text("Items"));
             hoverItem.editMeta(m -> {
                     if (m instanceof BundleMeta meta) {
-                        meta.setItems(allItemsStripped());
+                        meta.setItems(itemsStripped());
                     }
                     m.addItemFlags(ItemFlag.values());
                 });
@@ -364,7 +359,7 @@ public final class Auction {
         Component icon = join(noSeparators(), VanillaItems.BUNDLE, text(subscript(totalItemCount)));
         hoverItem.editMeta(m -> {
                 if (m instanceof BundleMeta meta) {
-                    meta.setItems(allItemsStripped());
+                    meta.setItems(itemsStripped());
                 }
                 m.addItemFlags(ItemFlag.values());
             });
