@@ -323,6 +323,7 @@ public final class Auction {
                         && blockStateMeta.hasBlockState()
                         && blockStateMeta.getBlockState() instanceof Container container) {
                         for (ItemStack item : container.getInventory()) {
+                            if (item == null || item.getType().isAir()) continue;
                             item.editMeta(meta2 -> {
                                     meta2.lore(List.of());
                                 });
