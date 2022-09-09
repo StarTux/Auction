@@ -32,6 +32,7 @@ import lombok.RequiredArgsConstructor;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.block.Container;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -298,6 +299,9 @@ public final class Auction {
             item = item.clone();
             if (item.hasItemMeta()) {
                 item.editMeta(meta -> {
+                        for (NamespacedKey key : meta.getPersistentDataContainer().getKeys()) {
+                            meta.getPersistentDataContainer().remove(key);
+                        }
                         meta.displayName(null);
                         meta.lore(List.of());
                         if (meta instanceof BlockStateMeta blockStateMeta
@@ -319,6 +323,9 @@ public final class Auction {
         topItem = topItem.clone();
         if (topItem.hasItemMeta()) {
             topItem.editMeta(meta -> {
+                    for (NamespacedKey key : meta.getPersistentDataContainer().getKeys()) {
+                        meta.getPersistentDataContainer().remove(key);
+                    }
                     if (meta instanceof BlockStateMeta blockStateMeta
                         && blockStateMeta.hasBlockState()
                         && blockStateMeta.getBlockState() instanceof Container container) {
