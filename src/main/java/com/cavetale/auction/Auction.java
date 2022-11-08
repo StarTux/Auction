@@ -300,6 +300,7 @@ public final class Auction {
             if (item.hasItemMeta()) {
                 item.editMeta(meta -> {
                         for (NamespacedKey key : meta.getPersistentDataContainer().getKeys()) {
+                            if ("worldmarker".equals(key.getNamespace())) continue;
                             meta.getPersistentDataContainer().remove(key);
                         }
                         meta.displayName(null);
@@ -324,6 +325,7 @@ public final class Auction {
         if (topItem.hasItemMeta()) {
             topItem.editMeta(meta -> {
                     for (NamespacedKey key : meta.getPersistentDataContainer().getKeys()) {
+                        if ("worldmarker".equals(key.getNamespace())) continue;
                         meta.getPersistentDataContainer().remove(key);
                     }
                     if (meta instanceof BlockStateMeta blockStateMeta
