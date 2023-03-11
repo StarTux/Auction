@@ -393,6 +393,23 @@ public final class Auction {
         return itemComponent.clickEvent(runCommand("/auc preview " + id));
     }
 
+    private Component getSidebarIconTag() {
+        final Component itemComponent;
+        // if (itemMap.size() == 1) {
+        //     ItemStack theItem = itemMap.keySet().iterator().next();
+        //     int count = itemMap.getOrDefault(theItem, 1);
+        //     Component icon = ItemKinds.icon(stripped(theItem));
+        //     if (empty().equals(icon)) {
+        //         itemComponent = bundleIconTag();
+        //     } else {
+        //         itemComponent = ItemKinds.iconDescription(stripped(theItem), count);
+        //     }
+        // } else {
+            itemComponent = VanillaItems.BUNDLE.component;
+        // }
+        return itemComponent.clickEvent(runCommand("/auc preview " + id));
+    }
+
     public Component getUserTags(UUID target) {
         List<Component> result = new ArrayList<>();
         if (!auctionRow.isOwner(target)) {
@@ -688,7 +705,7 @@ public final class Auction {
         List<Component> lines = new ArrayList<>();
         lines.add(join(noSeparators(),
                        text(superscript(auctionRow.getId()) + Unicode.SUPER_RPAR.string, DARK_AQUA),
-                       getIconTag(),
+                       getSidebarIconTag(),
                        space(),
                        Coin.format(auctionRow.getCurrentPrice())));
         double bid = getPlayerBid(target);
