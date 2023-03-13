@@ -18,6 +18,7 @@ import org.bukkit.entity.Player;
 import static net.kyori.adventure.text.Component.join;
 import static net.kyori.adventure.text.Component.space;
 import static net.kyori.adventure.text.Component.text;
+import static net.kyori.adventure.text.Component.textOfChildren;
 import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
 import static net.kyori.adventure.text.JoinConfiguration.separator;
 import static net.kyori.adventure.text.event.ClickEvent.suggestCommand;
@@ -33,6 +34,7 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
     @Override
     protected void onEnable() {
         rootNode.addChild("debug").denyTabCompletion()
+            .description("Dump auctions debug")
             .senderCaller(this::debug);
         rootNode.addChild("hist").denyTabCompletion()
             .description("List auction history")
@@ -73,18 +75,17 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
             .findListAsync(rows -> {
                     Component colon = text(":", GRAY);
                     for (SQLAuction row : rows) {
-                        sender.sendMessage(join(noSeparators(),
-                                                text("#" + row.getId(), YELLOW),
-                                                space(),
-                                                text("created"), colon, text(Format.BRIEF_DATE_FORMAT.format(row.getCreatedTime()), YELLOW),
-                                                space(),
-                                                text("state"), colon, text(row.getState().name().toLowerCase(), YELLOW),
-                                                space(),
-                                                text("owner"), colon, text(row.getOwnerName(), YELLOW),
-                                                space(),
-                                                text("price"), colon, text(Auction.MONEY_FORMAT.format(row.getCurrentPrice()), YELLOW),
-                                                space(),
-                                                text("winner"), colon, text(row.getWinnerName()))
+                        sender.sendMessage(textOfChildren(text("#" + row.getId(), YELLOW),
+                                                          space(),
+                                                          text("created"), colon, text(Format.BRIEF_DATE_FORMAT.format(row.getCreatedTime()), YELLOW),
+                                                          space(),
+                                                          text("state"), colon, text(row.getState().name().toLowerCase(), YELLOW),
+                                                          space(),
+                                                          text("owner"), colon, text(row.getOwnerName(), YELLOW),
+                                                          space(),
+                                                          text("price"), colon, text(Auction.MONEY_FORMAT.format(row.getCurrentPrice()), YELLOW),
+                                                          space(),
+                                                          text("winner"), colon, text(row.getWinnerName()))
                                            .clickEvent(suggestCommand("/aucadm info " + row.getId()))
                                            .hoverEvent(showText(text("/aucadm info " + row.getId(), YELLOW))));
                     }
@@ -98,26 +99,26 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
         if (row == null) {
             throw new CommandWarn("Auction not found: " + id);
         }
-        sender.sendMessage(join(noSeparators(), text("id ", AQUA), text(row.getId(), YELLOW)));
-        sender.sendMessage(join(noSeparators(), text("owner ", AQUA), text(row.getOwnerName(), YELLOW)));
-        sender.sendMessage(join(noSeparators(), text("winner ", AQUA), text(row.getWinnerName(), YELLOW)));
-        sender.sendMessage(join(noSeparators(), text("state ", AQUA), text(row.getState().name(), YELLOW)));
-        sender.sendMessage(join(noSeparators(), text("bid ", AQUA),
-                                text(Auction.MONEY_FORMAT.format(row.getCurrentBid()), YELLOW)));
-        sender.sendMessage(join(noSeparators(), text("price ", AQUA),
-                                text(Auction.MONEY_FORMAT.format(row.getCurrentPrice()), YELLOW)));
-        sender.sendMessage(join(noSeparators(), text("highest ", AQUA),
-                                text(Auction.MONEY_FORMAT.format(row.getHighestBid()), YELLOW)));
-        sender.sendMessage(join(noSeparators(), text("auctionFee ", AQUA),
-                                text(Auction.MONEY_FORMAT.format(row.getAuctionFee()), YELLOW)));
-        sender.sendMessage(join(noSeparators(), text("created ", AQUA), text(Format.date(row.getCreatedTime()), YELLOW)));
-        sender.sendMessage(join(noSeparators(), text("duration ", AQUA), text(row.getFullDuration(), YELLOW)));
-        sender.sendMessage(join(noSeparators(), text("start ", AQUA), text(Format.date(row.getStartTime()), YELLOW)));
-        sender.sendMessage(join(noSeparators(), text("end ", AQUA), text(Format.date(row.getEndTime()), YELLOW)));
-        sender.sendMessage(join(noSeparators(), text("announced ", AQUA), text(Format.date(row.getAnnouncedTime()), YELLOW)));
+        sender.sendMessage(textOfChildren(text("id ", AQUA), text(row.getId(), YELLOW)));
+        sender.sendMessage(textOfChildren(text("owner ", AQUA), text(row.getOwnerName(), YELLOW)));
+        sender.sendMessage(textOfChildren(text("winner ", AQUA), text(row.getWinnerName(), YELLOW)));
+        sender.sendMessage(textOfChildren(text("state ", AQUA), text(row.getState().name(), YELLOW)));
+        sender.sendMessage(textOfChildren(text("bid ", AQUA),
+                                          text(Auction.MONEY_FORMAT.format(row.getCurrentBid()), YELLOW)));
+        sender.sendMessage(textOfChildren(text("price ", AQUA),
+                                          text(Auction.MONEY_FORMAT.format(row.getCurrentPrice()), YELLOW)));
+        sender.sendMessage(textOfChildren(text("highest ", AQUA),
+                                          text(Auction.MONEY_FORMAT.format(row.getHighestBid()), YELLOW)));
+        sender.sendMessage(textOfChildren(text("auctionFee ", AQUA),
+                                          text(Auction.MONEY_FORMAT.format(row.getAuctionFee()), YELLOW)));
+        sender.sendMessage(textOfChildren(text("created ", AQUA), text(Format.date(row.getCreatedTime()), YELLOW)));
+        sender.sendMessage(textOfChildren(text("duration ", AQUA), text(row.getFullDuration(), YELLOW)));
+        sender.sendMessage(textOfChildren(text("start ", AQUA), text(Format.date(row.getStartTime()), YELLOW)));
+        sender.sendMessage(textOfChildren(text("end ", AQUA), text(Format.date(row.getEndTime()), YELLOW)));
+        sender.sendMessage(textOfChildren(text("announced ", AQUA), text(Format.date(row.getAnnouncedTime()), YELLOW)));
         Auction auction = new Auction(plugin, row);
         auction.computeItems();
-        sender.sendMessage(join(noSeparators(), text("items ", AQUA), auction.getItemTag()));
+        sender.sendMessage(textOfChildren(text("items ", AQUA), auction.getChatItemTag()));
         return true;
     }
 

@@ -293,34 +293,20 @@ public final class Auction {
                                       text(tiny("items back."), DARK_GRAY))));
     }
 
-    private List<ItemStack> itemsStripped() {
+    /**
+     * Strip item for view in bundle tooltip.  Each item needs its
+     * looks intact but tooltips and metadata don't matter.
+     */
+    private List<ItemStack> stripItemsForBundle() {
         List<ItemStack> result = new ArrayList<>(items.size());
-        for (ItemStack item : items) {
-            item = item.clone();
-            if (item.hasItemMeta()) {
-                item.editMeta(meta -> {
-                        for (NamespacedKey key : meta.getPersistentDataContainer().getKeys()) {
-                            if ("worldmarker".equals(key.getNamespace())) continue;
-                            meta.getPersistentDataContainer().remove(key);
-                        }
-                        meta.displayName(null);
-                        meta.lore(List.of());
-                        if (meta instanceof BlockStateMeta blockStateMeta
-                            && blockStateMeta.hasBlockState()
-                            && blockStateMeta.getBlockState() instanceof Container container) {
-                            container.getInventory().clear();
-                        }
-                    });
-            }
-            result.add(item);
-        }
+        for (ItemStack item : items) result.add(stripItemForBundle(item));
         return result;
     }
 
     /**
-     * Prepare for single item view.
+     * Prepare for single item to display it as a tooltip in chat.
      */
-    private static ItemStack stripped(ItemStack topItem) {
+    public static ItemStack stripItemForChat(ItemStack topItem) {
         topItem = topItem.clone();
         if (topItem.hasItemMeta()) {
             topItem.editMeta(meta -> {
@@ -334,7 +320,10 @@ public final class Auction {
                         for (ItemStack item : container.getInventory()) {
                             if (item == null || item.getType().isAir()) continue;
                             item.editMeta(meta2 -> {
-                                    meta2.lore(List.of());
+                                    for (NamespacedKey key : meta2.getPersistentDataContainer().getKeys()) {
+                                        meta2.getPersistentDataContainer().remove(key);
+                                    }
+                                    meta2.lore(null);
                                 });
                         }
                         blockStateMeta.setBlockState(container);
@@ -344,18 +333,46 @@ public final class Auction {
         return topItem;
     }
 
-    public Component getItemTag() {
+    public static ItemStack stripItemForBundle(ItemStack item) {
+        item = item.clone();
+        if (item.hasItemMeta()) {
+            item.editMeta(meta -> {
+                    for (NamespacedKey key : meta.getPersistentDataContainer().getKeys()) {
+                        // We can delete the worldmarker/mytems ids
+                        // because this will be an actual item view,
+                        // meaning the CustomModelData will be used.
+                        meta.getPersistentDataContainer().remove(key);
+                    }
+                    meta.displayName(null);
+                    meta.lore(null);
+                    // We clear the container because contents cannot
+                    // be seen anyway.
+                    if (meta instanceof BlockStateMeta blockStateMeta
+                        && blockStateMeta.hasBlockState()
+                        && blockStateMeta.getBlockState() instanceof Container container) {
+                        container.getInventory().clear();
+                        blockStateMeta.setBlockState(container);
+                    }
+                });
+        }
+        return item;
+    }
+
+    /**
+     * Produce the component to display the item in chat.
+     */
+    public Component getChatItemTag() {
         final Component itemComponent;
         if (itemMap.size() == 1) {
             ItemStack theItem = itemMap.keySet().iterator().next();
             int count = itemMap.getOrDefault(theItem, 1);
-            itemComponent = ItemKinds.chatDescription(stripped(theItem), count);
+            itemComponent = ItemKinds.chatDescription(stripItemForChat(theItem), count);
         } else {
             ItemStack hoverItem = new ItemStack(Material.BUNDLE);
             Component title = join(noSeparators(), text(totalItemCount), VanillaItems.BUNDLE, text("Items"));
             hoverItem.editMeta(m -> {
                     if (m instanceof BundleMeta meta) {
-                        meta.setItems(itemsStripped());
+                        meta.setItems(stripItemsForBundle());
                     }
                     m.addItemFlags(ItemFlag.values());
                 });
@@ -364,28 +381,19 @@ public final class Auction {
         return itemComponent.clickEvent(runCommand("/auc preview " + id));
     }
 
-    private Component bundleIconTag() {
-        ItemStack hoverItem = new ItemStack(Material.BUNDLE);
-        Component icon = join(noSeparators(), VanillaItems.BUNDLE, text(subscript(totalItemCount)));
-        hoverItem.editMeta(m -> {
-                if (m instanceof BundleMeta meta) {
-                    meta.setItems(itemsStripped());
-                }
-                m.addItemFlags(ItemFlag.values());
-            });
-        return icon.hoverEvent(hoverItem.asHoverEvent());
-    }
-
-    public Component getIconTag() {
+    /**
+     * Same as getChatItemTag but shorter.
+     */
+    public Component getChatIconTag() {
         final Component itemComponent;
         if (itemMap.size() == 1) {
             ItemStack theItem = itemMap.keySet().iterator().next();
             int count = itemMap.getOrDefault(theItem, 1);
-            Component icon = ItemKinds.icon(stripped(theItem));
+            Component icon = ItemKinds.icon(stripItemForChat(theItem));
             if (empty().equals(icon)) {
                 itemComponent = bundleIconTag();
             } else {
-                itemComponent = ItemKinds.iconDescription(stripped(theItem), count);
+                itemComponent = ItemKinds.iconDescription(stripItemForChat(theItem), count);
             }
         } else {
             itemComponent = bundleIconTag();
@@ -393,21 +401,34 @@ public final class Auction {
         return itemComponent.clickEvent(runCommand("/auc preview " + id));
     }
 
-    private Component getSidebarIconTag() {
-        final Component itemComponent;
-        // if (itemMap.size() == 1) {
-        //     ItemStack theItem = itemMap.keySet().iterator().next();
-        //     int count = itemMap.getOrDefault(theItem, 1);
-        //     Component icon = ItemKinds.icon(stripped(theItem));
-        //     if (empty().equals(icon)) {
-        //         itemComponent = bundleIconTag();
-        //     } else {
-        //         itemComponent = ItemKinds.iconDescription(stripped(theItem), count);
-        //     }
-        // } else {
-            itemComponent = VanillaItems.BUNDLE.component;
-        // }
-        return itemComponent.clickEvent(runCommand("/auc preview " + id));
+    /**
+     * Produce the item tag for the sidebar.  This differs from chat
+     * because we do not need a tooltip.  If a tooltip is too long,
+     * players will disconnect.  It's also just an icon.
+     */
+    private Component getSidebarItemTag() {
+        if (itemMap.size() == 1) {
+            ItemStack theItem = itemMap.keySet().iterator().next();
+            int count = itemMap.getOrDefault(theItem, 1);
+            Component icon = ItemKinds.icon(stripItemForChat(theItem));
+            return empty().equals(icon)
+                ? VanillaItems.BUNDLE.component
+                : icon;
+        } else {
+            return VanillaItems.BUNDLE.component;
+        }
+    }
+
+    private Component bundleIconTag() {
+        ItemStack hoverItem = new ItemStack(Material.BUNDLE);
+        Component icon = join(noSeparators(), VanillaItems.BUNDLE, text(subscript(totalItemCount)));
+        hoverItem.editMeta(m -> {
+                if (m instanceof BundleMeta meta) {
+                    meta.setItems(stripItemsForBundle());
+                }
+                m.addItemFlags(ItemFlag.values());
+            });
+        return icon.hoverEvent(hoverItem.asHoverEvent());
     }
 
     public Component getUserTags(UUID target) {
@@ -430,7 +451,7 @@ public final class Auction {
                     getUserTags(target),
                     getAuctionTag(),
                     text(tiny(" for "), DARK_GRAY),
-                    getItemTag(),
+                    getChatItemTag(),
                     text(tiny(" price "), DARK_GRAY),
                     Coin.format(auctionRow.getCurrentPrice()),
                     text(tiny(" time "), DARK_GRAY),
@@ -517,7 +538,7 @@ public final class Auction {
                                   space(),
                                   text(player.getName()),
                                   text(tiny(" is winning "), DARK_GRAY),
-                                  getItemTag(),
+                                  getChatItemTag(),
                                   text(tiny(" for "), DARK_GRAY),
                                   Coin.format(auctionRow.getCurrentPrice())));
         } else if (bidType.isRaise()) {
@@ -528,7 +549,7 @@ public final class Auction {
                                   space(),
                                   text(player.getName()),
                                   text(tiny(" raised "), DARK_GRAY),
-                                  getItemTag(),
+                                  getChatItemTag(),
                                   text(tiny(" to "), DARK_GRAY),
                                   Coin.format(auctionRow.getCurrentPrice())));
         }
@@ -596,7 +617,7 @@ public final class Auction {
                           space(),
                           text(auctionRow.getWinnerName()),
                           text(tiny(" wins "), DARK_GRAY),
-                          getItemTag(),
+                          getChatItemTag(),
                           text(tiny(" for "), DARK_GRAY),
                           Coin.format(auctionRow.getCurrentPrice())));
         } else {
@@ -609,7 +630,7 @@ public final class Auction {
                           getAuctionTag(),
                           space(),
                           text(tiny(" ended: "), DARK_GRAY),
-                          getItemTag()));
+                          getChatItemTag()));
         }
     }
 
@@ -658,7 +679,7 @@ public final class Auction {
         if (auctionRow.getState().isActive()) {
             lines.add(join(noSeparators(), text(tiny("time "), gray), Format.duration(auctionRow.getRemainingDuration(), book)));
         }
-        lines.add(join(noSeparators(), text(tiny("items "), gray), getIconTag()));
+        lines.add(join(noSeparators(), text(tiny("items "), gray), getChatIconTag()));
         lines.add(join(noSeparators(), text(tiny("price "), gray), Format.money(auctionRow.getCurrentPrice(), book)));
         lines.add(join(noSeparators(), text(tiny("owner "), gray), text(auctionRow.getOwnerName(), hl)));
         if (auctionRow.hasWinner()) {
@@ -705,7 +726,7 @@ public final class Auction {
         List<Component> lines = new ArrayList<>();
         lines.add(join(noSeparators(),
                        text(superscript(auctionRow.getId()) + Unicode.SUPER_RPAR.string, DARK_AQUA),
-                       getSidebarIconTag(),
+                       getSidebarItemTag(),
                        space(),
                        Coin.format(auctionRow.getCurrentPrice())));
         double bid = getPlayerBid(target);
