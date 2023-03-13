@@ -13,6 +13,8 @@ import com.cavetale.core.connect.Connect;
 import com.cavetale.core.connect.NetworkServer;
 import com.cavetale.core.connect.ServerCategory;
 import com.cavetale.core.connect.ServerGroup;
+import com.cavetale.core.event.item.PlayerReceiveItemsEvent;
+import com.cavetale.core.font.GuiOverlay;
 import com.cavetale.core.money.Money;
 import com.cavetale.inventory.mail.ItemMail;
 import com.cavetale.mytems.item.coin.Coin;
@@ -445,20 +447,17 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
                             if (!player.isOnline()) {
                                 retour(player, inv);
                             } else {
+                                final int size = inv.getSize();
                                 Gui gui = new Gui(plugin)
-                                    .size(inv.getSize())
-                                    .title(text("Auction", DARK_AQUA));
+                                    .size(size)
+                                    .title(GuiOverlay.HOLES.builder(size, DARK_AQUA)
+                                           .title(text("Auction #" + row.getId(), WHITE))
+                                           .build());
                                 for (int i = 0; i < inv.getSize(); i += 1) {
                                     gui.setItem(i, inv.getItem(i));
                                 }
-                                gui.onClose(evt -> {
-                                        for (ItemStack item : gui.getInventory()) {
-                                            if (item == null || item.getType().isAir()) continue;
-                                            for (ItemStack drop : player.getInventory().addItem(item).values()) {
-                                                player.getWorld().dropItem(player.getEyeLocation(), drop).setPickupDelay(0);
-                                            }
-                                        }
-                                    });
+                                gui.onClose(evt -> PlayerReceiveItemsEvent.receiveInventory(player, gui.getInventory()));
+                                gui.setEditable(true);
                                 gui.open(player);
                             }
                             LogType.DELIVERED.log(row.getAuctionId(), uuid, row.getDebt());

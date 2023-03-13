@@ -11,6 +11,7 @@ import com.cavetale.core.connect.ServerGroup;
 import com.cavetale.core.event.connect.ConnectMessageEvent;
 import com.cavetale.core.event.hud.PlayerHudEvent;
 import com.cavetale.core.event.hud.PlayerHudPriority;
+import com.cavetale.core.font.GuiOverlay;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -34,9 +35,8 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import static com.cavetale.core.font.Unicode.tiny;
-import static net.kyori.adventure.text.Component.join;
 import static net.kyori.adventure.text.Component.text;
-import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
+import static net.kyori.adventure.text.Component.textOfChildren;
 import static net.kyori.adventure.text.event.ClickEvent.runCommand;
 import static net.kyori.adventure.text.event.HoverEvent.showText;
 import static net.kyori.adventure.text.format.NamedTextColor.*;
@@ -121,10 +121,9 @@ public final class Auctions implements Listener {
             Player player = Bukkit.getPlayer(uuid);
             if (player == null) continue;
             String cmd = "/auc pickup";
-            player.sendMessage(join(noSeparators(),
-                                    text(tiny("Auction "), DARK_AQUA),
-                                    text("There is a delivery waiting for you: "),
-                                    text("/auc pickup", AQUA))
+            player.sendMessage(textOfChildren(text(tiny("Auction "), DARK_AQUA),
+                                              text("There is a delivery waiting for you: "),
+                                              text("/auc pickup", AQUA))
                                .hoverEvent(showText(text(cmd, GREEN)))
                                .clickEvent(runCommand(cmd)));
         }
@@ -159,6 +158,9 @@ public final class Auctions implements Listener {
         return result;
     }
 
+    /**
+     * Get all auctions which a player is not actively ignoring.
+     */
     public List<Auction> getPlayerAuctions(UUID uuid) {
         List<Auction> result = new ArrayList<>();
         for (Auction auction : auctionMap.values()) {
@@ -172,12 +174,25 @@ public final class Auctions implements Listener {
         return result;
     }
 
+    /**
+     * Get all auctions which a player is focusing.
+     */
+    public List<Auction> getFocusAuctions(UUID uuid) {
+        List<Auction> result = new ArrayList<>();
+        for (Auction auction : auctionMap.values()) {
+            if (!auction.isActive()) continue;
+            if (!auction.getListenType(uuid).isFocus()) continue;
+            result.add(auction);
+        }
+        result.sort(END_TIME_COMPARATOR);
+        return result;
+    }
+
     private static final List<Component> DELIVERY_SIDEBAR = List.of(text("You have an", RED, BOLD),
                                                                     text("auction delivery", RED, BOLD),
                                                                     text("/auc pickup", YELLOW));
-    private static final Component DELIVERY_BOSS_BAR = join(noSeparators(),
-                                                            text("You have an auction delivery: ", RED),
-                                                            text("/auc pickup", YELLOW));
+    private static final Component DELIVERY_BOSS_BAR = textOfChildren(text("You have an auction delivery: ", WHITE),
+                                                                      text("/auc pickup", YELLOW));
 
     @EventHandler
     private void onPlayerHud(PlayerHudEvent event) {
@@ -185,15 +200,14 @@ public final class Auctions implements Listener {
         final UUID uuid = player.getUniqueId();
         if (deliveries.contains(uuid)) {
             event.sidebar(PlayerHudPriority.HIGH, DELIVERY_SIDEBAR);
-            event.bossbar(PlayerHudPriority.HIGH, DELIVERY_BOSS_BAR, BossBar.Color.RED, BossBar.Overlay.PROGRESS, 1.0f);
+            event.bossbar(PlayerHudPriority.HIGH, DELIVERY_BOSS_BAR, BossBar.Color.PINK, BossBar.Overlay.PROGRESS, 1.0f);
         }
         if (!player.hasPermission("auction.auction")) return;
         if (auctionMap.isEmpty()) return;
-        List<Auction> playerAuctions = getPlayerAuctions(uuid);
+        List<Auction> playerAuctions = getFocusAuctions(uuid);
         if (playerAuctions.isEmpty()) return;
         List<Component> lines = new ArrayList<>();
-        lines.add(join(noSeparators(),
-                       text("Current ", AQUA), text("/auc", YELLOW), text("tion", AQUA)));
+        lines.add(textOfChildren(text("/auc", YELLOW), text("tion", AQUA)));
         PlayerHudPriority prio = PlayerHudPriority.LOW;
         for (int i = 0; i < playerAuctions.size(); i += 1) {
             Auction auction = playerAuctions.get(i);
@@ -223,9 +237,12 @@ public final class Auctions implements Listener {
 
     public void previewAuction(Player player, SQLAuction row) {
         Inventory inventory = row.parseInventory();
+        final int size = inventory.getSize();
         Gui gui = new Gui(plugin)
-            .size(inventory.getSize())
-            .title(text("Auction Preview", DARK_AQUA));
+            .size(size)
+            .title(GuiOverlay.BLANK.builder(size, DARK_AQUA)
+                   .title(text("Auction Preview #" + row.getId(), WHITE))
+                   .build());
         for (int i = 0; i < inventory.getSize(); i += 1) {
             ItemStack item = inventory.getItem(i);
             if (item == null || item.getType().isAir()) continue;
@@ -246,9 +263,12 @@ public final class Auctions implements Listener {
     }
 
     public void previewContainer(Player player, SQLAuction row, Inventory inventory) {
+        final int size = inventory.getSize();
         Gui gui = new Gui(plugin)
-            .size(inventory.getSize())
-            .title(text("Auction Preview", DARK_AQUA));
+            .size(size)
+            .title(GuiOverlay.BLANK.builder(size, DARK_AQUA)
+                   .title(text("Auction Preview #" + row.getId(), WHITE))
+                   .build());
         for (int i = 0; i < inventory.getSize(); i += 1) {
             ItemStack item = inventory.getItem(i);
             if (item == null || item.getType().isAir()) continue;

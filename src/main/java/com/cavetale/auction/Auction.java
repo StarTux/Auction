@@ -8,7 +8,6 @@ import com.cavetale.core.command.RemotePlayer;
 import com.cavetale.core.connect.Connect;
 import com.cavetale.core.connect.ServerGroup;
 import com.cavetale.core.font.Unicode;
-import com.cavetale.core.font.VanillaEffects;
 import com.cavetale.core.font.VanillaItems;
 import com.cavetale.core.item.ItemKinds;
 import com.cavetale.core.money.Money;
@@ -48,6 +47,7 @@ import static net.kyori.adventure.text.Component.join;
 import static net.kyori.adventure.text.Component.newline;
 import static net.kyori.adventure.text.Component.space;
 import static net.kyori.adventure.text.Component.text;
+import static net.kyori.adventure.text.Component.textOfChildren;
 import static net.kyori.adventure.text.JoinConfiguration.noSeparators;
 import static net.kyori.adventure.text.JoinConfiguration.separator;
 import static net.kyori.adventure.text.event.ClickEvent.runCommand;
@@ -232,7 +232,7 @@ public final class Auction {
                        getPlayerBid(target) + 1.0);
         String cmd = "/bid " + id + " " + MONEY_FORMAT.format(bidAmount);
         Component text = big
-            ? join(noSeparators(), text("["), Mytems.PLUS_BUTTON, text("Bid]")).color(BLUE)
+            ? textOfChildren(text("["), Mytems.PLUS_BUTTON, text("Bid]")).color(BLUE)
             : Mytems.PLUS_BUTTON.component;
         return text
             .clickEvent(run ? runCommand(cmd) : suggestCommand(cmd))
@@ -249,8 +249,8 @@ public final class Auction {
     public Component getIgnoreTag(boolean big) {
         String cmd = "/auc ignore " + id;
         Component text = big
-            ? join(noSeparators(), text("["), VanillaEffects.BLINDNESS, text("Ignore]")).color(RED)
-            : VanillaEffects.BLINDNESS.component;
+            ? textOfChildren(text("["), Mytems.BLIND_EYE, text("Ignore]")).color(RED)
+            : Mytems.BLIND_EYE.component;
         return text
             .clickEvent(runCommand(cmd))
             .hoverEvent(showText(join(separator(newline()),
@@ -264,7 +264,7 @@ public final class Auction {
     public Component getFocusTag(boolean big) {
         String cmd = "/auc focus " + id;
         Component text = big
-            ? join(noSeparators(), text("["), VanillaItems.SPYGLASS, text("Focus]")).color(GOLD)
+            ? textOfChildren(text("["), VanillaItems.SPYGLASS, text("Focus]")).color(GOLD)
             : VanillaItems.SPYGLASS.component;
         return text
             .clickEvent(runCommand(cmd))
@@ -280,7 +280,7 @@ public final class Auction {
     public Component getCancelTag(boolean big) {
         String cmd = "/auc cancel " + id;
         Component text = big
-            ? join(noSeparators(), text("["), VanillaItems.BARRIER, text("Cancel]")).color(DARK_RED)
+            ? textOfChildren(text("["), VanillaItems.BARRIER, text("Cancel]")).color(DARK_RED)
             : VanillaItems.BARRIER.component;
         return text
             .clickEvent(runCommand(cmd))
@@ -369,7 +369,7 @@ public final class Auction {
             itemComponent = ItemKinds.chatDescription(stripItemForChat(theItem), count);
         } else {
             ItemStack hoverItem = new ItemStack(Material.BUNDLE);
-            Component title = join(noSeparators(), text(totalItemCount), VanillaItems.BUNDLE, text("Items"));
+            Component title = textOfChildren(text(totalItemCount), VanillaItems.BUNDLE, text("Items"));
             hoverItem.editMeta(m -> {
                     if (m instanceof BundleMeta meta) {
                         meta.setItems(stripItemsForBundle());
@@ -421,7 +421,7 @@ public final class Auction {
 
     private Component bundleIconTag() {
         ItemStack hoverItem = new ItemStack(Material.BUNDLE);
-        Component icon = join(noSeparators(), VanillaItems.BUNDLE, text(subscript(totalItemCount)));
+        Component icon = textOfChildren(VanillaItems.BUNDLE, text(subscript(totalItemCount)));
         hoverItem.editMeta(m -> {
                 if (m instanceof BundleMeta meta) {
                     meta.setItems(stripItemsForBundle());
@@ -447,15 +447,14 @@ public final class Auction {
     }
 
     public Component getAnnouncementMessage(UUID target) {
-        return join(noSeparators(),
-                    getUserTags(target),
-                    getAuctionTag(),
-                    text(tiny(" for "), DARK_GRAY),
-                    getChatItemTag(),
-                    text(tiny(" price "), DARK_GRAY),
-                    Coin.format(auctionRow.getCurrentPrice()),
-                    text(tiny(" time "), DARK_GRAY),
-                    Format.duration(auctionRow.getRemainingDuration()));
+        return textOfChildren(getUserTags(target),
+                              getAuctionTag(),
+                              text(tiny(" for "), DARK_GRAY),
+                              getChatItemTag(),
+                              text(tiny(" price "), DARK_GRAY),
+                              Coin.format(auctionRow.getCurrentPrice()),
+                              text(tiny(" time "), DARK_GRAY),
+                              Format.duration(auctionRow.getRemainingDuration()));
     }
 
     protected void bidCommand(RemotePlayer player, double amount) {
@@ -477,12 +476,12 @@ public final class Auction {
                                    .clickEvent(bidTag.clickEvent()));
                 return;
             }
-            throw new CommandWarn(join(noSeparators(), text("You must bid more than ", RED), Coin.format(price)));
+            throw new CommandWarn(textOfChildren(text("You must bid more than ", RED), Coin.format(price)));
         } else if (amount < price) {
-            throw new CommandWarn(join(noSeparators(), text("You must bid at least ", RED), Coin.format(price)));
+            throw new CommandWarn(textOfChildren(text("You must bid at least ", RED), Coin.format(price)));
         }
         if (!Money.get().has(player.getUniqueId(), amount)) {
-            throw new CommandWarn(join(noSeparators(), text("You do not have ", RED), Coin.format(amount)));
+            throw new CommandWarn(textOfChildren(text("You do not have ", RED), Coin.format(amount)));
         }
         final double highest = auctionRow.getHighestBid();
         final boolean winning = !auctionRow.hasWinner() || amount - highest >= 0.01;
@@ -496,7 +495,7 @@ public final class Auction {
         final BidType bidType;
         if (wasWinner) {
             if (!winning) {
-                throw new CommandWarn(join(noSeparators(), text("You already bid ", RED), Coin.format(highest)));
+                throw new CommandWarn(textOfChildren(text("You already bid ", RED), Coin.format(highest)));
             }
             setPlayerBid(player.getUniqueId(), amount);
             auctionRow.setHighestBid(amount);
@@ -525,33 +524,30 @@ public final class Auction {
         }
         LogType.BID.log(auctionRow, player.getUniqueId(), amount);
         if (bidType.isSilent()) {
-            player.sendMessage(join(noSeparators(),
-                                    getAuctionTag(),
-                                    space(),
-                                    text("You raised your bid to "),
-                                    Coin.format(amount)));
+            player.sendMessage(textOfChildren(getAuctionTag(),
+                                              space(),
+                                              text("You raised your bid to "),
+                                              Coin.format(amount)));
         } else if (bidType.isWinner()) {
             announce(ListenType.FOCUS, Set.of(player.getUniqueId()),
-                     uuid -> join(noSeparators(),
-                                  getUserTags(uuid),
-                                  getAuctionTag(),
-                                  space(),
-                                  text(player.getName()),
-                                  text(tiny(" is winning "), DARK_GRAY),
-                                  getChatItemTag(),
-                                  text(tiny(" for "), DARK_GRAY),
-                                  Coin.format(auctionRow.getCurrentPrice())));
+                     uuid -> textOfChildren(getUserTags(uuid),
+                                            getAuctionTag(),
+                                            space(),
+                                            text(player.getName()),
+                                            text(tiny(" is winning "), DARK_GRAY),
+                                            getChatItemTag(),
+                                            text(tiny(" for "), DARK_GRAY),
+                                            Coin.format(auctionRow.getCurrentPrice())));
         } else if (bidType.isRaise()) {
             announce(ListenType.FOCUS, Set.of(player.getUniqueId()),
-                     uuid -> join(noSeparators(),
-                                  getUserTags(uuid),
-                                  getAuctionTag(),
-                                  space(),
-                                  text(player.getName()),
-                                  text(tiny(" raised "), DARK_GRAY),
-                                  getChatItemTag(),
-                                  text(tiny(" to "), DARK_GRAY),
-                                  Coin.format(auctionRow.getCurrentPrice())));
+                     uuid -> textOfChildren(getUserTags(uuid),
+                                            getAuctionTag(),
+                                            space(),
+                                            text(player.getName()),
+                                            text(tiny(" raised "), DARK_GRAY),
+                                            getChatItemTag(),
+                                            text(tiny(" to "), DARK_GRAY),
+                                            Coin.format(auctionRow.getCurrentPrice())));
         }
     }
 
@@ -568,7 +564,7 @@ public final class Auction {
             end();
             return;
         }
-        if (Duration.between(auctionRow.getAnnouncedTime().toInstant(), Instant.now()).toMinutes() >= 5) {
+        if (Duration.between(auctionRow.getAnnouncedTime().toInstant(), Instant.now()).toMinutes() >= 15) {
             auctionRow.setAnnouncedTime(new Date());
             plugin.database.updateAsync(auctionRow, Set.of("announcedTime"), null);
             announce(ListenType.DEFAULT, Set.of(), this::getAnnouncementMessage);
@@ -607,30 +603,40 @@ public final class Auction {
             double debt = paid
                 ? 0.0
                 : auctionRow.getCurrentPrice();
-            plugin.database.insertAsync(new SQLDelivery(auctionRow, auctionRow.getWinner(), debt), r -> plugin.auctions.checkDeliveries());
+            plugin.database.insertAsync(new SQLDelivery(auctionRow, auctionRow.getWinner(), debt), r -> {
+                    plugin.auctions.checkDeliveries();
+                    RemotePlayer remote = Connect.get().getRemotePlayer(auctionRow.getWinner());
+                    if (remote != null) {
+                        remote.sendMessage(textOfChildren(textOfChildren(newline(),
+                                                                         Mytems.MOUSE_LEFT,
+                                                                         text("You have an auction delivery: ", WHITE),
+                                                                         text("/auc pickup", YELLOW),
+                                                                         newline()))
+                                           .hoverEvent(showText(text("/auc pickup", YELLOW)))
+                                           .clickEvent(runCommand("/auc pickup")));
+                    }
+                });
             if (!paid) {
                 LogType.DEBT.log(auctionRow, auctionRow.getWinner(), debt);
             }
-            announce(ListenType.DEFAULT, Set.copyOf(List.of(auctionRow.getWinner(), auctionRow.getOwner())),
-                     join(noSeparators(),
-                          getAuctionTag(),
-                          space(),
-                          text(auctionRow.getWinnerName()),
-                          text(tiny(" wins "), DARK_GRAY),
-                          getChatItemTag(),
-                          text(tiny(" for "), DARK_GRAY),
-                          Coin.format(auctionRow.getCurrentPrice())));
+            announce(ListenType.FOCUS, Set.copyOf(List.of(auctionRow.getWinner(), auctionRow.getOwner())),
+                     textOfChildren(getAuctionTag(),
+                                    space(),
+                                    text(auctionRow.getWinnerName()),
+                                    text(tiny(" wins "), DARK_GRAY),
+                                    getChatItemTag(),
+                                    text(tiny(" for "), DARK_GRAY),
+                                    Coin.format(auctionRow.getCurrentPrice())));
         } else {
             LogType.FAIL.log(auctionRow, null, 0.0);
             if (!auctionRow.isServerAuction()) {
                 plugin.database.insertAsync(new SQLDelivery(auctionRow, auctionRow.getOwner(), 0.0), r -> plugin.auctions.checkDeliveries());
             }
-            announce(ListenType.DEFAULT, Set.of(auctionRow.getOwner()),
-                     join(noSeparators(),
-                          getAuctionTag(),
-                          space(),
-                          text(tiny(" ended: "), DARK_GRAY),
-                          getChatItemTag()));
+            announce(ListenType.FOCUS, Set.of(auctionRow.getOwner()),
+                     textOfChildren(getAuctionTag(),
+                                    space(),
+                                    text(tiny(" ended: "), DARK_GRAY),
+                                    getChatItemTag()));
         }
     }
 
@@ -652,7 +658,7 @@ public final class Auction {
         for (RemotePlayer player : Connect.get().getRemotePlayers()) {
             if (player.getOriginServer().group != ServerGroup.current()) continue;
             if (!targets.contains(player.getUniqueId())) {
-                if (!getListenType(player.getUniqueId()).doesEntail(listenType)) {
+                if (getListenType(player.getUniqueId()) != listenType) {
                     continue;
                 }
                 if (!Perm.get().has(player.getUniqueId(), "auction.auction")) {
@@ -674,25 +680,34 @@ public final class Auction {
         List<Component> lines = new ArrayList<>();
         TextColor gray = GRAY;
         TextColor hl = book ? BLACK : WHITE;
-        lines.add(join(noSeparators(), text(tiny("id "), gray), text("" + id, hl)));
-        lines.add(join(noSeparators(), text(tiny("state "), gray), auctionRow.getState().displayName));
+        lines.add(textOfChildren(text(tiny("id "), gray), text("" + id, hl)));
+        lines.add(textOfChildren(text(tiny("state "), gray), auctionRow.getState().displayName));
         if (auctionRow.getState().isActive()) {
-            lines.add(join(noSeparators(), text(tiny("time "), gray), Format.duration(auctionRow.getRemainingDuration(), book)));
+            lines.add(textOfChildren(text(tiny("time "), gray), Format.duration(auctionRow.getRemainingDuration(), book)));
         }
-        lines.add(join(noSeparators(), text(tiny("items "), gray), getChatIconTag()));
-        lines.add(join(noSeparators(), text(tiny("price "), gray), Format.money(auctionRow.getCurrentPrice(), book)));
-        lines.add(join(noSeparators(), text(tiny("owner "), gray), text(auctionRow.getOwnerName(), hl)));
+        lines.add(textOfChildren(text(tiny("items "), gray)
+                                 .hoverEvent(showText(textOfChildren(Mytems.MOUSE_LEFT, text(" Open a preview", GRAY))))
+                                 .clickEvent(runCommand("/auc preview " + id)),
+                                 getChatIconTag()));
+        lines.add(textOfChildren(text(tiny("price "), gray), Format.money(auctionRow.getCurrentPrice(), book)));
+        lines.add(textOfChildren(text(tiny("owner "), gray), text(auctionRow.getOwnerName(), hl)));
+        ListenType listening = getListenType(target);
+        if (listening.isIgnore()) {
+            lines.add(textOfChildren(text(tiny("ignored "), gray), Mytems.BLIND_EYE));
+        } else if (listening.isFocus()) {
+            lines.add(textOfChildren(text(tiny("focused "), gray), VanillaItems.SPYGLASS));
+        }
         if (auctionRow.hasWinner()) {
-            lines.add(join(noSeparators(), text(tiny("winner "), gray), text(auctionRow.getWinnerName(), hl)));
+            lines.add(textOfChildren(text(tiny("winner "), gray), text(auctionRow.getWinnerName(), hl)));
         }
         SQLPlayerAuction playerAuction = players.get(target);
         if (playerAuction != null && playerAuction.getBid() >= 0.01) {
-            lines.add(join(noSeparators(), text(tiny("your bid "), gray), Format.money(playerAuction.getBid(), book)));
+            lines.add(textOfChildren(text(tiny("your bid "), gray), Format.money(playerAuction.getBid(), book)));
         }
         if (!book) return lines;
         List<Component> buttons = new ArrayList<>();
         if (auctionRow.getState().isListenable()) {
-            buttons.add(join(noSeparators(), text("["), Mytems.REDO, text("Refresh]")).color(DARK_GREEN)
+            buttons.add(textOfChildren(text("["), Mytems.REDO, text("Refresh]")).color(DARK_GREEN)
                         .hoverEvent(showText(join(separator(newline()),
                                                   text("/auc info " + id, DARK_GREEN),
                                                   text("Refresh this view", GRAY))))
@@ -708,10 +723,10 @@ public final class Auction {
             }
         }
         if (auctionRow.getState().isListenable()) {
-            buttons.add(getIgnoreTag(true));
-            buttons.add(getFocusTag(true));
+            if (!listening.isIgnore()) buttons.add(getIgnoreTag(true));
+            if (!listening.isFocus()) buttons.add(getFocusTag(true));
         }
-        buttons.add(join(noSeparators(), text("["), Mytems.FOLDER, text("List]")).color(BLUE)
+        buttons.add(textOfChildren(text("["), Mytems.FOLDER, text("List]")).color(BLUE)
                     .hoverEvent(showText(join(separator(newline()),
                                               text("/auc list", BLUE),
                                               text("List all auctions", GRAY))))
@@ -724,24 +739,21 @@ public final class Auction {
 
     public List<Component> getSidebarLines(UUID target) {
         List<Component> lines = new ArrayList<>();
-        lines.add(join(noSeparators(),
-                       text(superscript(auctionRow.getId()) + Unicode.SUPER_RPAR.string, DARK_AQUA),
-                       getSidebarItemTag(),
-                       space(),
-                       Coin.format(auctionRow.getCurrentPrice())));
+        lines.add(textOfChildren(text(superscript(auctionRow.getId()) + Unicode.SUPER_RPAR.string, DARK_AQUA),
+                                 getSidebarItemTag(),
+                                 space(),
+                                 Coin.format(auctionRow.getCurrentPrice())));
         double bid = getPlayerBid(target);
         if (bid >= 0.01) {
-            lines.add(join(noSeparators(),
-                           space(),
-                           text(tiny("your bid "), GRAY),
-                           Coin.format(bid)));
+            lines.add(textOfChildren(space(),
+                                     text(tiny("your bid "), GRAY),
+                                     Coin.format(bid)));
         }
-        lines.add(join(noSeparators(),
-                       space(),
-                       Format.duration(auctionRow.getRemainingDuration()),
-                       (auctionRow.hasWinner()
-                        ? join(noSeparators(), space(), text(auctionRow.getWinnerName(), DARK_AQUA))
-                        : empty())));
+        lines.add(textOfChildren(space(),
+                                 Format.duration(auctionRow.getRemainingDuration()),
+                                 (auctionRow.hasWinner()
+                                  ? textOfChildren(space(), text(auctionRow.getWinnerName(), DARK_AQUA))
+                                  : empty())));
         return lines;
     }
 }
