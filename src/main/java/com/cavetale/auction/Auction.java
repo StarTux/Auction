@@ -168,17 +168,19 @@ public final class Auction {
      * This is called right before an auctionRow update, which
      * triggers the refresh broadcast.
      */
-    private void setPlayerBid(UUID uuid, double bid) {
+    private void setPlayerBid(UUID uuid, double bid, ListenType listenType) {
         SQLPlayerAuction row = players.get(uuid);
         if (row != null && row.getBid() == bid) return;
         if (row == null) {
             row = new SQLPlayerAuction(auctionRow, uuid);
             row.setBid(bid);
+            row.setListenType(listenType);
             players.put(uuid, row);
             plugin.database.insertAsync(row, null);
         } else {
             row.setBid(bid);
-            plugin.database.updateAsync(row, Set.of("bid"), null);
+            row.setListenType(listenType);
+            plugin.database.updateAsync(row, Set.of("bid", "listenType"), null);
         }
     }
 
@@ -497,7 +499,7 @@ public final class Auction {
             if (!winning) {
                 throw new CommandWarn(textOfChildren(text("You already bid ", RED), Coin.format(highest)));
             }
-            setPlayerBid(player.getUniqueId(), amount);
+            setPlayerBid(player.getUniqueId(), amount, ListenType.FOCUS);
             auctionRow.setHighestBid(amount);
             plugin.database.updateAsync(auctionRow, Set.of("highestBid"), this::postBid);
             bidType = BidType.SILENT;
@@ -508,13 +510,13 @@ public final class Auction {
                 auctionRow.setCurrentPrice(newPrice);
                 auctionRow.setHighestBid(amount);
                 auctionRow.setWinner(player.getUniqueId());
-                setPlayerBid(player.getUniqueId(), amount);
+                setPlayerBid(player.getUniqueId(), amount, ListenType.FOCUS);
                 plugin.database.updateAsync(auctionRow, Set.of("currentBid", "currentPrice", "highestBid", "winner"), this::postBid);
                 bidType = BidType.WINNER;
             } else if (raising) {
                 auctionRow.setCurrentBid(amount);
                 auctionRow.setCurrentPrice(amount);
-                setPlayerBid(player.getUniqueId(), amount);
+                setPlayerBid(player.getUniqueId(), amount, ListenType.FOCUS);
                 plugin.database.updateAsync(auctionRow, Set.of("currentBid", "currentPrice"), this::postBid);
                 bidType = BidType.RAISE;
             } else {
@@ -691,18 +693,18 @@ public final class Auction {
                                  getChatIconTag()));
         lines.add(textOfChildren(text(tiny("price "), gray), Format.money(auctionRow.getCurrentPrice(), book)));
         lines.add(textOfChildren(text(tiny("owner "), gray), text(auctionRow.getOwnerName(), hl)));
-        ListenType listening = getListenType(target);
-        if (listening.isIgnore()) {
-            lines.add(textOfChildren(text(tiny("ignored "), gray), Mytems.BLIND_EYE));
-        } else if (listening.isFocus()) {
-            lines.add(textOfChildren(text(tiny("focused "), gray), VanillaItems.SPYGLASS));
-        }
         if (auctionRow.hasWinner()) {
             lines.add(textOfChildren(text(tiny("winner "), gray), text(auctionRow.getWinnerName(), hl)));
         }
         SQLPlayerAuction playerAuction = players.get(target);
         if (playerAuction != null && playerAuction.getBid() >= 0.01) {
             lines.add(textOfChildren(text(tiny("your bid "), gray), Format.money(playerAuction.getBid(), book)));
+        }
+        ListenType listening = getListenType(target);
+        if (listening.isIgnore()) {
+            lines.add(textOfChildren(text(tiny("ignored "), gray), Mytems.BLIND_EYE));
+        } else if (listening.isFocus()) {
+            lines.add(textOfChildren(text(tiny("focused "), gray), VanillaItems.SPYGLASS));
         }
         if (!book) return lines;
         List<Component> buttons = new ArrayList<>();
