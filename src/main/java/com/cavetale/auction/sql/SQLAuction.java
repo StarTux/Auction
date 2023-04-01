@@ -36,7 +36,7 @@ public final class SQLAuction implements SQLRow {
     private double currentPrice; // shown
     private double highestBid; // secret
     private double auctionFee;
-    @SQLRow.Text private String inventory;
+    @SQLRow.LongText private String inventory;
     private Date createdTime;
     private long fullDuration;
     private Date startTime;
