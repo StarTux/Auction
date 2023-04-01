@@ -560,6 +560,10 @@ public final class Auction {
         Connect.get().broadcastMessage(ServerGroup.current(), Auctions.CONNECT_REFRESH, "" + id);
     }
 
+    /**
+     * Only ACTIVE auctions should be ticked this way, and only while
+     * on the manager server.
+     */
     protected void managerTick() {
         Duration remaining = auctionRow.getRemainingDuration();
         if (remaining.isNegative()) {
