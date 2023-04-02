@@ -17,7 +17,7 @@ public final class SQLDelivery implements SQLRow {
     @Id private Integer id;
     private int auctionId;
     @Keyed private UUID owner;
-    @Text private String inventory;
+    @LongText private String inventory;
     private double debt;
     private UUID moneyRecipient;
     private Date creationTime;
