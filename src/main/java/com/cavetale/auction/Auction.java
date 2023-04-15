@@ -71,6 +71,7 @@ public final class Auction {
     private int totalItemCount;
     private final Map<UUID, SQLPlayerAuction> players = new HashMap<>();
     private boolean loading;
+    private boolean ended;
 
     public Auction(final AuctionPlugin plugin, final SQLAuction row) {
         this(plugin, row.getId());
@@ -489,7 +490,7 @@ public final class Auction {
         final boolean winning = !auctionRow.hasWinner() || amount - highest >= 0.01;
         final boolean raising = winning || amount - price >= 0.01;
         final boolean wasWinner = auctionRow.isWinner(player.getUniqueId());
-        log("[bid] "
+        log("[bid]"
             + " highest=" + highest
             + " winning=" + winning
             + " raising=" + raising
@@ -595,6 +596,7 @@ public final class Auction {
 
     public void end() {
         plugin.getLogger().info("End Auction " + id);
+        ended = true;
         auctionRow.setState(AuctionState.ENDED);
         auctionRow.setExclusive(false);
         plugin.database.updateAsync(auctionRow, Set.of("state", "exclusive"), res -> {

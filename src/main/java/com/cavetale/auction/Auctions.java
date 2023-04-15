@@ -298,7 +298,7 @@ public final class Auctions implements Listener {
                 anyLoading = true;
                 continue;
             }
-            if (auction.isActive()) {
+            if (auction.isActive() && !auction.isEnded()) {
                 auction.managerTick();
             }
             if (auction.getAuctionRow().getRemainingDuration().toMinutes() <= 10L) {
