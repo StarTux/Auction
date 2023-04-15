@@ -594,6 +594,7 @@ public final class Auction {
     }
 
     public void end() {
+        plugin.getLogger().info("End Auction " + id);
         auctionRow.setState(AuctionState.ENDED);
         auctionRow.setExclusive(false);
         plugin.database.updateAsync(auctionRow, Set.of("state", "exclusive"), res -> {
