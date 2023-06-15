@@ -115,6 +115,7 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
                 meta.title(text("auction"));
                 meta.pages(pages);
             });
+        player.closeInventory();
         player.openBook(book);
     }
 
@@ -168,6 +169,7 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
                 meta.title(text("auction"));
                 meta.pages(join(separator(newline()), auction.getInfoLines(player.getUniqueId(), true)));
             });
+        player.closeInventory();
         player.openBook(book);
     }
 
@@ -346,6 +348,7 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
                     meta.pages(List.of(join(separator(newline()), lines)));
                 }
             });
+        player.closeInventory();
         player.openBook(book);
     }
 
