@@ -655,6 +655,7 @@ public final class Auction {
         plugin.database.updateAsync(auctionRow, Set.of("state", "exclusive"), r -> {
                 if (r == 0) return;
                 Connect.get().broadcastMessage(ServerGroup.current(), Auctions.CONNECT_REMOVE, "" + id);
+                LogType.CANCEL.log(auctionRow, sender, 0.0);
                 if (!auctionRow.isServerAuction()) {
                     plugin.database.insertAsync(new SQLDelivery(auctionRow, auctionRow.getOwner(), 0.0), rr -> {
                             plugin.auctions.checkDeliveries();
