@@ -62,6 +62,10 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
             .description("Delete an auction")
             .completers(CommandArgCompleter.integer(i -> i > 0))
             .senderCaller(this::delete);
+        rootNode.addChild("open").arguments("<id>")
+            .description("Open auction inventory")
+            .completers(CommandArgCompleter.integer(i -> i > 0))
+            .playerCaller(this::open);
     }
 
     private void debug(CommandSender sender) {
@@ -230,6 +234,17 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
                                             AQUA));
                 }
             });
+        return true;
+    }
+
+    private boolean open(Player player, String[] args) {
+        int id = CommandArgCompleter.requireInt(args[0], i -> i > 0);
+        SQLAuction row = plugin.database.find(SQLAuction.class).idEq(id).findUnique();
+        if (row == null) {
+            throw new CommandWarn("Auction not found: " + id);
+        }
+        player.openInventory(row.parseInventory());
+        player.sendMessage(textOfChildren(text("Opened auction #" + row.getId(), AQUA)));
         return true;
     }
 }
