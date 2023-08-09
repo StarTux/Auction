@@ -474,6 +474,9 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
         // Active Auction
         Auction auction = plugin.auctions.getActiveAuction(id);
         if (auction != null) {
+            if (!auction.getAuctionRow().isOwner(player.getUniqueId())) {
+                throw new CommandWarn("This auction does not belong to you");
+            }
             if (auction.getAuctionRow().hasWinner()) {
                 throw new CommandWarn("This auction has bids!");
             }
