@@ -62,9 +62,9 @@ public final class Format {
                                       join(noSeparators(), list).color(YELLOW),
                                       text(date(then), GRAY, ITALIC),
                                       join(noSeparators(), text(days, YELLOW), text(" Days", GRAY)),
-                                      join(noSeparators(), text(hours, YELLOW), text(" Hours", GRAY)),
-                                      join(noSeparators(), text(minutes, YELLOW), text(" Minutes", GRAY)),
-                                      join(noSeparators(), text(seconds, YELLOW), text(" Seconds", GRAY)))));
+                                      join(noSeparators(), text(hours % 24, YELLOW), text(" Hours", GRAY)),
+                                      join(noSeparators(), text(minutes % 60, YELLOW), text(" Minutes", GRAY)),
+                                      join(noSeparators(), text(seconds % 60, YELLOW), text(" Seconds", GRAY)))));
     }
 
     public static Component duration(Duration duration) {
