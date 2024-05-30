@@ -1,7 +1,7 @@
 package com.cavetale.auction;
 
-import lombok.RequiredArgsConstructor;
 import lombok.Getter;
+import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 public enum ListenType {
