@@ -121,7 +121,8 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
         sender.sendMessage(textOfChildren(text("announced ", AQUA), text(Format.date(row.getAnnouncedTime()), YELLOW)));
         Auction auction = new Auction(plugin, row);
         auction.computeItems();
-        sender.sendMessage(textOfChildren(text("items ", AQUA), auction.getChatItemTag()));
+        sender.sendMessage(textOfChildren(text("chat-item ", AQUA), auction.getChatItemTag()));
+        sender.sendMessage(textOfChildren(text("bundle-item ", AQUA), auction.bundleIconTag()));
         return true;
     }
 

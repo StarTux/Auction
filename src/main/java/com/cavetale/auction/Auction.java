@@ -35,7 +35,6 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.block.Container;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.BundleMeta;
@@ -373,12 +372,7 @@ public final class Auction {
         } else {
             ItemStack hoverItem = new ItemStack(Material.BUNDLE);
             Component title = textOfChildren(text(totalItemCount), VanillaItems.BUNDLE, text("Items"));
-            hoverItem.editMeta(m -> {
-                    if (m instanceof BundleMeta meta) {
-                        meta.setItems(stripItemsForBundle());
-                    }
-                    m.addItemFlags(ItemFlag.values());
-                });
+            hoverItem.editMeta(BundleMeta.class, meta -> meta.setItems(stripItemsForBundle()));
             itemComponent = title.hoverEvent(hoverItem.asHoverEvent());
         }
         return itemComponent.clickEvent(runCommand("/auc preview " + id));
@@ -422,15 +416,10 @@ public final class Auction {
         }
     }
 
-    private Component bundleIconTag() {
+    public Component bundleIconTag() {
         ItemStack hoverItem = new ItemStack(Material.BUNDLE);
         Component icon = textOfChildren(VanillaItems.BUNDLE, text(subscript(totalItemCount)));
-        hoverItem.editMeta(m -> {
-                if (m instanceof BundleMeta meta) {
-                    meta.setItems(stripItemsForBundle());
-                }
-                m.addItemFlags(ItemFlag.values());
-            });
+        hoverItem.editMeta(BundleMeta.class, meta -> meta.setItems(stripItemsForBundle()));
         return icon.hoverEvent(hoverItem.asHoverEvent());
     }
 
