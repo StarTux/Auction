@@ -4,6 +4,7 @@ import com.cavetale.auction.gui.Gui;
 import com.cavetale.auction.sql.SQLAuction;
 import com.cavetale.auction.sql.SQLDelivery;
 import com.cavetale.auction.sql.SQLLog;
+import com.cavetale.auction.sql.SQLPlayerAuction;
 import com.cavetale.core.command.AbstractCommand;
 import com.cavetale.core.command.CommandArgCompleter;
 import com.cavetale.core.command.CommandWarn;
@@ -42,6 +43,10 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
             .completers(CommandArgCompleter.supplyList(plugin.auctions::complete))
             .description("View auction info")
             .senderCaller(this::info);
+        rootNode.addChild("players").arguments("[id]")
+            .completers(CommandArgCompleter.supplyList(plugin.auctions::complete))
+            .description("View player auction info")
+            .playerCaller(this::players);
         rootNode.addChild("log").arguments("<id>")
             .completers(CommandArgCompleter.supplyList(plugin.auctions::complete))
             .description("View auction logs")
@@ -123,6 +128,23 @@ public final class AuctionAdminCommand extends AbstractCommand<AuctionPlugin> {
         auction.computeItems();
         sender.sendMessage(textOfChildren(text("chat-item ", AQUA), auction.getChatItemTag()));
         sender.sendMessage(textOfChildren(text("bundle-item ", AQUA), auction.bundleIconTag()));
+        return true;
+    }
+
+    private boolean players(CommandSender sender, String[] args) {
+        if (args.length != 1) return false;
+        final int id = CommandArgCompleter.requireInt(args[0], i -> i > 0);
+        final List<SQLPlayerAuction> rows = plugin.database.find(SQLPlayerAuction.class).eq("auctionId", id).findList();
+        if (rows.isEmpty()) {
+            throw new CommandWarn("No players found for auction #" + id);
+        }
+        sender.sendMessage(text(rows.size() + " players for auction #" + id, YELLOW));
+        for (SQLPlayerAuction row : rows) {
+            sender.sendMessage(textOfChildren(text(" #", GRAY), text(row.getId(), WHITE),
+                                              text(" " + PlayerCache.nameForUuid(row.getPlayer()), YELLOW),
+                                              text(" bid:", GRAY), text(Auction.MONEY_FORMAT.format(row.getBid()), WHITE),
+                                              text(" listen:", GRAY), text(row.getListenType().name().toLowerCase(), WHITE)));
+        }
         return true;
     }
 
