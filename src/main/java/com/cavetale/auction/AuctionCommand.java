@@ -499,7 +499,7 @@ public final class AuctionCommand extends AbstractCommand<AuctionPlugin> {
                                         if (r == null) {
                                             throw new CommandWarn("Auction not found: " + id);
                                         }
-                                        LogType.CANCEL.log(auction.getAuctionRow(), player.getUniqueId(), 0.0);
+                                        LogType.CANCEL.log(row, player.getUniqueId(), 0.0);
                                         plugin.database.insertAsync(new SQLDelivery(row, row.getOwner(), 0.0), rr -> {
                                                 player.sendMessage(text("Auction cancelled", GREEN));
                                                 plugin.auctions.checkDeliveries();
