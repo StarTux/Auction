@@ -1,6 +1,5 @@
 package com.cavetale.auction;
 
-import com.cavetale.auction.gui.Gui;
 import com.cavetale.auction.sql.SQLAuction;
 import com.cavetale.auction.sql.SQLDelivery;
 import com.cavetale.auction.sql.SQLLog;
@@ -11,6 +10,7 @@ import com.cavetale.core.command.CommandWarn;
 import com.cavetale.core.connect.Connect;
 import com.cavetale.core.connect.ServerGroup;
 import com.cavetale.core.playercache.PlayerCache;
+import com.cavetale.mytems.util.Gui;
 import java.time.Duration;
 import java.util.List;
 import net.kyori.adventure.text.Component;

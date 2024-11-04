@@ -1,6 +1,5 @@
 package com.cavetale.auction;
 
-import com.cavetale.auction.gui.Gui;
 import com.cavetale.auction.sql.SQLAuction;
 import com.cavetale.auction.sql.SQLDelivery;
 import com.cavetale.auction.sql.SQLLog;
@@ -12,6 +11,7 @@ import com.cavetale.core.event.connect.ConnectMessageEvent;
 import com.cavetale.core.event.hud.PlayerHudEvent;
 import com.cavetale.core.event.hud.PlayerHudPriority;
 import com.cavetale.core.font.GuiOverlay;
+import com.cavetale.mytems.util.Gui;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;

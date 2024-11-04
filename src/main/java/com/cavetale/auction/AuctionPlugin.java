@@ -1,6 +1,5 @@
 package com.cavetale.auction;
 
-import com.cavetale.auction.gui.Gui;
 import com.cavetale.auction.sql.SQLAuction;
 import com.cavetale.auction.sql.SQLDelivery;
 import com.cavetale.auction.sql.SQLLog;
@@ -32,12 +31,6 @@ public final class AuctionPlugin extends JavaPlugin {
         auctionAdminCommand.enable();
         auctionCommand.enable();
         bidCommand.enable();
-        Gui.enable(this);
-    }
-
-    @Override
-    public void onDisable() {
-        Gui.disable();
     }
 
     public static AuctionPlugin auctionPlugin() {

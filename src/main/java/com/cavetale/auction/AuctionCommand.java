@@ -1,6 +1,5 @@
 package com.cavetale.auction;
 
-import com.cavetale.auction.gui.Gui;
 import com.cavetale.auction.sql.SQLAuction;
 import com.cavetale.auction.sql.SQLDelivery;
 import com.cavetale.auction.sql.SQLPlayerAuction;
@@ -18,6 +17,7 @@ import com.cavetale.core.font.GuiOverlay;
 import com.cavetale.core.money.Money;
 import com.cavetale.inventory.mail.ItemMail;
 import com.cavetale.mytems.item.coin.Coin;
+import com.cavetale.mytems.util.Gui;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
